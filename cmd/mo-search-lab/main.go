@@ -167,5 +167,5 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: mo-retrieval-bench validate --pack DIR | run --pack DIR [options] | render --report-dir DIR | ui --reports DIR | version")
+	fmt.Fprintln(os.Stderr, "usage: mo-search-lab validate --pack DIR | run --pack DIR [options] | render --report-dir DIR | ui --reports DIR | version")
 }

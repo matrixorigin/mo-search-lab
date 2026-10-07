@@ -1,4 +1,4 @@
-name: standalone client
+name: MO Search Lab
 
 on:
   push:

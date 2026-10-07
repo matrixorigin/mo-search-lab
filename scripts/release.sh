@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-version=${1:-v0.8.2}
+version=${1:-v0.8.3}
 target_os=${2:-linux}
 target_arch=${3:-amd64}
 for component in "$version" "$target_os" "$target_arch"; do
@@ -11,7 +11,7 @@ done
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
 mkdir -p dist
-name="mo-retrieval-bench-${version}-${target_os}-${target_arch}"
+name="mo-search-lab-${version}-${target_os}-${target_arch}"
 stage=$(mktemp -d "$repo_dir/dist/.release-stage-XXXXXX")
 trap 'rm -rf "$stage"' EXIT
 bundle="$stage/$name"
@@ -19,12 +19,12 @@ mkdir -p "$bundle/packs"
 
 GOWORK=off CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
   "${GO:-go}" build -mod=readonly -trimpath -ldflags="-s -w -X main.version=$version" \
-  -o "$bundle/mo-retrieval-bench" ./cmd/mo-retrieval-bench
+  -o "$bundle/mo-search-lab" ./cmd/mo-search-lab
 cp README.md LICENSE "$bundle/"
 cp -R docs "$bundle/"
-mkdir -p "$bundle/cmd/mo-retrieval-bench"
-cp cmd/mo-retrieval-bench/README.md "$bundle/cmd/mo-retrieval-bench/"
-cp -R cmd/mo-retrieval-bench/testdata/smoke "$bundle/packs/smoke"
+mkdir -p "$bundle/cmd/mo-search-lab"
+cp cmd/mo-search-lab/README.md "$bundle/cmd/mo-search-lab/"
+cp -R cmd/mo-search-lab/testdata/smoke "$bundle/packs/smoke"
 (
   cd "$bundle"
   find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS

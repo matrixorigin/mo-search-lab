@@ -7,11 +7,11 @@ This command is a standalone client for on-site retrieval checks. It connects to
 Build from this standalone repository for the customer's OS/architecture. Its own `go.mod` pins a pure-Go MySQL protocol driver and terminal libraries; this package does not import MatrixOne kernel packages or CGo vector dependencies:
 
 ```sh
-CGO_ENABLED=0 GOWORK=off go build -mod=readonly -trimpath -ldflags='-s -w -X main.version=v0.8.2' -o mo-retrieval-bench ./cmd/mo-retrieval-bench
-./mo-retrieval-bench validate --pack ./cmd/mo-retrieval-bench/testdata/smoke
+CGO_ENABLED=0 GOWORK=off go build -mod=readonly -trimpath -ldflags='-s -w -X main.version=v0.8.3' -o mo-search-lab ./cmd/mo-search-lab
+./mo-search-lab validate --pack ./cmd/mo-search-lab/testdata/smoke
 export MO_BENCH_PASSWORD='...'
-./mo-retrieval-bench run --host 127.0.0.1 --port 6001 --user root \
-  --pack ./cmd/mo-retrieval-bench/testdata/smoke \
+./mo-search-lab run --host 127.0.0.1 --port 6001 --user root \
+  --pack ./cmd/mo-search-lab/testdata/smoke \
   --query-limit 2 --repeat 3 --concurrency 1
 ```
 
@@ -34,7 +34,7 @@ The default output directory has a timestamped name. The command prints its path
 Provide the pack and connection details; profile flags are optional:
 
 ```sh
-./mo-retrieval-bench run --pack /path/to/gist-health-pack \
+./mo-search-lab run --pack /path/to/gist-health-pack \
   --host 127.0.0.1 --port 6001 --report-dir reports/gist
 ```
 
@@ -52,7 +52,7 @@ The HTML report starts with charts. A concurrency sweep overlays scenarios in co
 Numeric tables, measurement metadata, and complete per-scenario charts are collapsed in native expandable details. Reports without concurrency profiles instead show per-query quality bars (up to 30 inputs) and P90/P95/P99 on a shared linear millisecond axis. Zero quality scores remain distinct from missing SQL observations. Exact P50/P90/P95/P99 values and all observations remain available in tables and JSON. Percentiles use successful measured SQL round trips, including quality failures and excluding SQL errors/warmups, with nearest-rank selection `ceil(p*N)`. The chart shows the sample count; for fewer than 100 samples, P99 is the sample maximum. It makes no external requests. Regenerate an older HTML report from its saved observations without rerunning MatrixOne:
 
 ```sh
-./mo-retrieval-bench render --report-dir /path/to/existing-report
+./mo-search-lab render --report-dir /path/to/existing-report
 ```
 
 This command atomically replaces only `report.html`; `report.json` and its original measurement identity/hashes remain unchanged. The renderer reconstructs missing P90 from per-query observations and labels its own version separately. [The v3 report contract](../../docs/design/field_retrieval_benchmark_v3.md) describes the compatibility and chart semantics.
@@ -66,9 +66,9 @@ directly over SSH; Python, a browser, an HTTP service and an active SQL connecti
 are not needed for viewing:
 
 ```sh
-./mo-retrieval-bench ui --reports /path/to/reports
-./mo-retrieval-bench ui --report-dir /path/to/one-run
-./mo-retrieval-bench ui --reports /path/to/reports --dataset gist1m_filtered_v7
+./mo-search-lab ui --reports /path/to/reports
+./mo-search-lab ui --report-dir /path/to/one-run
+./mo-search-lab ui --reports /path/to/reports --dataset gist1m_filtered_v7
 ```
 
 The catalogue groups runs by the recorded dataset ID, with the newest run first.
@@ -100,9 +100,9 @@ A failed load after switching is visible and clears the old report.
 For a script or copied text, select a page and print it without terminal controls:
 
 ```sh
-./mo-retrieval-bench ui --report-dir /path/to/one-run \
+./mo-search-lab ui --report-dir /path/to/one-run \
   --plain --section concurrency --percentile 99 --concurrency 8
-./mo-retrieval-bench ui --report-dir /path/to/one-run \
+./mo-search-lab ui --report-dir /path/to/one-run \
   --plain --section sql --scenario-id vector --concurrency 1
 ```
 
@@ -123,7 +123,7 @@ runs at each requested level on the same loaded data and index. Stability
 scenarios run once at concurrency 1 with their own query/repetition budget:
 
 ```sh
-./mo-retrieval-bench run --pack /path/to/gist-health-pack \
+./mo-search-lab run --pack /path/to/gist-health-pack \
   --query-limit 100 --repeat 1 --warmup 10 \
   --concurrency-levels 1,4,8 \
   --stability-query-limit 5 --stability-repeat 30 \
@@ -175,16 +175,16 @@ Before a large pack is used for customer reporting, freeze the public source rev
 `tools/prepare_public_pack.py` runs **before delivery**, using only the Python standard library. It streams source files into a versioned pack and records source SHA-256 digests in `source.json`; the runner records the generated CSV and scenario digests in its report. The on-site runner still needs no Python. Example:
 
 ```sh
-python3 cmd/mo-retrieval-bench/tools/prepare_public_pack.py t2ranking \
+python3 tools/prepare_public_pack.py t2ranking \
   --source-dir /path/to/T2Ranking/data \
   --out /path/to/packs/t2ranking_100k --rows 100000 --queries 20
-python3 cmd/mo-retrieval-bench/tools/prepare_public_pack.py gist \
+python3 tools/prepare_public_pack.py gist \
   --source-dir /path/to/gist \
   --out /path/to/packs/gist_1m --rows 1000000 --queries 100 \
   --nprobes 20,100 --stability-queries 5 --top-k 100
 ```
 
-The T2Ranking pack uses the first selected passages and only dev judgments for passages in that subset. Its nDCG is a pilot observation, not the official full-corpus benchmark. A GIST subset uses `nonempty` because the published nearest-neighbor truth was computed against all one million vectors; only a full GIST pack enables `ann_recall`. `--nprobes` adds scenarios with session-scoped `SET probe_limit` beside the server-default setting, allowing recall and latency to be compared on the same index. Add `--skip-default` to generate a pack containing only the explicit probe settings. SQL scenarios that use `session_sql` pin and configure one connection per query worker; the setting also applies to their EXPLAIN and warmup queries. Both generated packs should be validated with `mo-retrieval-bench validate --pack DIR` before a run. T2Ranking vector and hybrid scenarios still require separately generated, pinned embeddings and exact vector truth.
+The T2Ranking pack uses the first selected passages and only dev judgments for passages in that subset. Its nDCG is a pilot observation, not the official full-corpus benchmark. A GIST subset uses `nonempty` because the published nearest-neighbor truth was computed against all one million vectors; only a full GIST pack enables `ann_recall`. `--nprobes` adds scenarios with session-scoped `SET probe_limit` beside the server-default setting, allowing recall and latency to be compared on the same index. Add `--skip-default` to generate a pack containing only the explicit probe settings. SQL scenarios that use `session_sql` pin and configure one connection per query worker; the setting also applies to their EXPLAIN and warmup queries. Both generated packs should be validated with `mo-search-lab validate --pack DIR` before a run. T2Ranking vector and hybrid scenarios still require separately generated, pinned embeddings and exact vector truth.
 
 `passed` means the pack's explicit query/quality assertions passed in this run. SQL QPS, latency percentiles, and mean quality score include every query whose SQL completed, including queries that failed a quality assertion; SQL errors are counted as failures and excluded from those three metrics. Throughput and latency are observations with no universal pass line, and they exclude embedding generation, application reranking, and LLM work. A stable result is not necessarily a correct result; freeze `exact_ids` when the correct set is known. The eight-row smoke fixture cannot prove the multi-CN IVF fix. For cross-run comparisons, use the same pack digest, MatrixOne version, hardware/load conditions, and runtime profile. `docs/design/field_retrieval_benchmark_v2.md` records the stability contract and remaining customer-regression pack work; it is also included in the release archive.
 
@@ -200,7 +200,7 @@ The current GIST health profile uses client concurrency 1, 4 and 8. Project an
 existing report onto these already measured levels without rerunning SQL:
 
 ```sh
-./mo-retrieval-bench render --report-dir /path/to/gist-health-report \
+./mo-search-lab render --report-dir /path/to/gist-health-report \
   --concurrency-levels 1,4,8
 ```
 
@@ -238,12 +238,12 @@ customer-data, hybrid-fusion or reranking measurement. Customer parser and
 scoring configuration must be collected separately.
 
 ```sh
-./mo-retrieval-bench validate --pack /path/to/t2ranking-anli
-./mo-retrieval-bench run --host 127.0.0.1 --port 6001 --user root \
+./mo-search-lab validate --pack /path/to/t2ranking-anli
+./mo-search-lab run --host 127.0.0.1 --port 6001 --user root \
   --pack /path/to/t2ranking-anli --repeat 10 --warmup 8 \
   --concurrency-levels 1,4,8 --stability-query-limit 5 --stability-repeat 30 \
   --timeout 30s --report-dir ./t2ranking-anli-report
-./mo-retrieval-bench render --report-dir ./t2ranking-anli-report \
+./mo-search-lab render --report-dir ./t2ranking-anli-report \
   --scenario-ids raw_sentence_tfidf,anli_tokens_tfidf,anli_sql_tfidf,anli_sql_bm25
 ```
 
@@ -291,15 +291,15 @@ hashes. The first 503 candidates yield 500 searchable queries; 3 empty-token inp
 Run each parser pack sequentially against the same service:
 
 ```sh
-./mo-retrieval-bench run --pack /data/packs/anli-ngram \
+./mo-search-lab run --pack /data/packs/anli-ngram \
   --host 127.0.0.1 --port 6001 --report-dir reports/anli-ngram \
   --concurrency-levels 1,4,8 --repeat 1 --warmup 5 \
   --stability-repeat 30 --stability-query-limit 5 --timeout 3m
-./mo-retrieval-bench run --pack /data/packs/anli-gojieba \
+./mo-search-lab run --pack /data/packs/anli-gojieba \
   --host 127.0.0.1 --port 6001 --report-dir reports/anli-gojieba \
   --concurrency-levels 1,4,8 --repeat 1 --warmup 5 \
   --stability-repeat 30 --stability-query-limit 5 --timeout 3m
-./mo-retrieval-bench run --pack /data/packs/fulltext-functional \
+./mo-search-lab run --pack /data/packs/fulltext-functional \
   --host 127.0.0.1 --port 6001 --report-dir reports/fulltext-functional
 ```
 
@@ -365,9 +365,9 @@ observational ANN recall. Schema 3 ordinary SQL may name `id_column` to read
 all business result columns while preserving only IDs in reports.
 
 ```sh
-mo-retrieval-bench run --pack /data/gist-filtered --report-dir reports/filters \
+mo-search-lab run --pack /data/gist-filtered --report-dir reports/filters \
   --concurrency-levels 1,4,8 --stability-repeat 30 --stability-query-limit 5
-mo-retrieval-bench run --pack /data/gist-t2-workload --report-dir reports/workload \
+mo-search-lab run --pack /data/gist-t2-workload --report-dir reports/workload \
   --concurrency-levels 1,4,8 --mixed-scenarios vector,fulltext --warmup 5
 ```
 
@@ -397,9 +397,9 @@ charts to the existing dataset portal:
 
 ```sh
 python3 tools/verify_database_runs.py --report reports/filters \
-  --pack packs/gist_1m_filtered_v7 --binary ./mo-retrieval-bench
+  --pack packs/gist_1m_filtered_v7 --binary ./mo-search-lab
 python3 tools/verify_database_runs.py --report reports/workload \
-  --pack packs/gist_t2_sql_workload_v7 --binary ./mo-retrieval-bench
+  --pack packs/gist_t2_sql_workload_v7 --binary ./mo-search-lab
 python3 tools/render_database_workloads.py --reports-root reports \
   --filtered-report filters --mixed-report workload
 ```

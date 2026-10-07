@@ -294,7 +294,7 @@ func (m *terminalModel) headerLines() []string {
 		}
 		tabs = append(tabs, label)
 	}
-	lines := []string{"MATRIXONE / 检索现场报告 · 终端版 " + version, fmt.Sprintf("数据集 %d/%d · %s", m.dataset+1, len(m.datasets), dataset.ID), fmt.Sprintf("运行 %d/%d · %s · 原始整体判定: %s", m.run+1, len(dataset.Runs), run.StartedAt.Format("2006-01-02 15:04 UTC"), status), strings.Join(tabs, "  "), fmt.Sprintf("P%d · 并发筛选 %s · SQL场景 %d · 跳过报告 %d（环境页可查看）", m.percentile, level, m.scenario+1, len(m.warnings)), "原始数据: " + run.Path, strings.Repeat("─", m.width)}
+	lines := []string{"MO Search Lab / 检索现场报告 · 终端版 " + version, fmt.Sprintf("数据集 %d/%d · %s", m.dataset+1, len(m.datasets), dataset.ID), fmt.Sprintf("运行 %d/%d · %s · 原始整体判定: %s", m.run+1, len(dataset.Runs), run.StartedAt.Format("2006-01-02 15:04 UTC"), status), strings.Join(tabs, "  "), fmt.Sprintf("P%d · 并发筛选 %s · SQL场景 %d · 跳过报告 %d（环境页可查看）", m.percentile, level, m.scenario+1, len(m.warnings)), "原始数据: " + run.Path, strings.Repeat("─", m.width)}
 	for i := range lines {
 		lines[i] = terminalClip(lines[i], m.width)
 	}

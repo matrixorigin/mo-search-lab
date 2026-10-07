@@ -1,4 +1,4 @@
-module github.com/matrixorigin/mo-retrieval-bench
+module github.com/matrixorigin/mo-search-lab
 
 go 1.26.4
 

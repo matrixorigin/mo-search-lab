@@ -1,5 +1,8 @@
 # Standalone repository extraction (v0.8.2)
 
+This document records the v0.8.2 extraction under its original name. The project
+is now **MO Search Lab**; see [current naming and compatibility](search_lab_name.md).
+
 ## Contract
 
 Requested on 2026-10-07: maintain the customer retrieval health tool in its own

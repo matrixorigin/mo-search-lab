@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare reproducible public-data packs off site for mo-retrieval-bench.
+"""Prepare reproducible public-data packs off site for mo-search-lab.
 
 Only the Python standard library is needed here. Customer sites receive the
 generated pack and the standalone Go runner, not this preparation script.
