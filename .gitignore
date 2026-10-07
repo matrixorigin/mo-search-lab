@@ -1,0 +1,9 @@
+/mo-retrieval-bench
+/dist/
+/packs/
+/reports/
+/report-*/
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store

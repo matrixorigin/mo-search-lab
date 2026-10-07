@@ -1,0 +1,12 @@
+{
+  "id": "stable_multiset_smoke",
+  "route": "sql",
+  "sql": "WITH docs AS (SELECT id, body FROM documents WHERE id IN ('1','2')) SELECT id, body FROM docs UNION ALL SELECT id, body FROM docs",
+  "queries": {"path": "stability.jsonl", "sha256": "5cba9b7d837dcea89ebc425a13f168de7ed9f58b413bf3e2f9eaa0883f80ba11"},
+  "oracle": "stable_multiset",
+  "id_column": "id",
+  "top_k": 4,
+  "expected_rows": 4,
+  "min_repetitions": 3,
+  "session_sql": ["SET probe_limit=5"]
+}

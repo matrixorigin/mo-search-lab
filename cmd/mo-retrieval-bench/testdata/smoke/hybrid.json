@@ -1,0 +1,13 @@
+{
+  "id": "hybrid_rrf",
+  "route": "hybrid_rrf",
+  "vector_sql": "SELECT id FROM documents WHERE allow_access = 'OPEN' AND delete_flag = 0 ORDER BY l2_distance(embedding, ?) LIMIT 2",
+  "fulltext_sql": "SELECT id FROM documents WHERE MATCH(body) AGAINST (? IN BOOLEAN MODE) AND allow_access = 'OPEN' AND delete_flag = 0 ORDER BY MATCH(body) AGAINST (? IN BOOLEAN MODE) DESC, id LIMIT 2",
+  "vector_args": ["vector"],
+  "fulltext_args": ["text", "text"],
+  "queries": {"path": "hybrid.jsonl", "sha256": "2cf4ba9ad4762cfbfdd51e9ca47a77f1ef76fef618011d8da63f8c5732343429"},
+  "oracle": "qrels",
+  "top_k": 2,
+  "candidate_k": 2,
+  "min_score": 0.5
+}

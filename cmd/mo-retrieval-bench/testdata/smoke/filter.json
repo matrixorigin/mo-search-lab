@@ -1,0 +1,8 @@
+{
+  "id": "access_and_soft_delete",
+  "route": "sql",
+  "sql": "SELECT id FROM documents WHERE allow_access = 'OPEN' AND delete_flag = 0 ORDER BY id LIMIT 6",
+  "queries": {"path": "filter.jsonl", "sha256": "8a6556c0aa414a4767eaabe315cdd1ed510b233e1d572089ea42cfc1efa8a5be"},
+  "oracle": "exact_ids",
+  "top_k": 6
+}

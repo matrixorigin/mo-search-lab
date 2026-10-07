@@ -1,0 +1,2 @@
+{"id":"h_apple","params":{"vector":"[0,0,0]","text":"apple"},"relevance":{"1":2,"2":1}}
+{"id":"h_password","params":{"vector":"[0,0,1]","text":"password"},"relevance":{"7":1,"8":2}}

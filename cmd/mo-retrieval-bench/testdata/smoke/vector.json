@@ -1,0 +1,10 @@
+{
+  "id": "vector_ann",
+  "route": "sql",
+  "sql": "SELECT id FROM documents WHERE allow_access = 'OPEN' AND delete_flag = 0 ORDER BY l2_distance(embedding, ?) LIMIT 2",
+  "args": ["vector"],
+  "queries": {"path": "vector.jsonl", "sha256": "2945c9b106425fdd4e9e414f346c7e6a27e5a81553171123bb3ad564f90552b8"},
+  "oracle": "ann_recall",
+  "top_k": 2,
+  "min_score": 0.5
+}

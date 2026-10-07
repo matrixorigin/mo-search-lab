@@ -1,0 +1,8 @@
+1,apple nutrition,"[0,0,0]",OPEN,0
+2,apple device,"[0.1,0,0]",OPEN,0
+3,banana nutrition,"[1,0,0]",OPEN,0
+4,orange fruit,"[0,1,0]",OPEN,0
+5,private apple,"[0.001,0,0]",PRIVATE,0
+6,deleted apple,"[0.002,0,0]",OPEN,1
+7,login help,"[0,0,1]",OPEN,0
+8,password reset,"[0,0,0.9]",OPEN,0

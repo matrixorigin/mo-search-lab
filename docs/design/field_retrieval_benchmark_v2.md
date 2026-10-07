@@ -1,0 +1,21 @@
+# Field retrieval benchmark v2: repeated-result stability
+
+Status: accepted for the local prototype on 2026-09-28. This revision extends [v1](field_retrieval_benchmark_v1.md) for the multi-CN IVF candidate drift in [issue #28943](https://github.com/matrixorigin/matrixone/issues/28943). Existing schema-version-1 packs remain readable; `stable_multiset` requires schema version 2.
+
+## Contract
+
+A v2 scenario can set `oracle: "stable_multiset"`, `id_column`, `top_k`, optional `expected_rows`, `min_repetitions`, `session_sql`, and `plan_must_contain`. Query JSONL may include an `exact_ids` multiset with duplicate IDs; if present, every execution must match it. SQL may start with `WITH` and return extra columns. The runner extracts only the declared ID column, preserving duplicate IDs from `UNION ALL` and avoiding a projection rewrite that could change the plan.
+
+For stability scenarios, the runner opens one pinned connection per `--query-endpoints` entry (default: the normal SQL endpoint). It applies each session-scoped `SET` statement on every connection, captures `EXPLAIN PHYPLAN` and MatrixOne version per endpoint, checks required plan substrings and counts, then executes identical queries sequentially across endpoints in round-robin order. Repetitions below the scenario minimum, missing plan evidence, SQL errors, wrong row counts, empty results, incorrect frozen truth, or any changed ID multiset fail the scenario. A report includes each execution's endpoint, result IDs, distinct multiset count, minimum overlap at K, and maximum changed IDs. Output order is deliberately ignored because the customer issue was changed membership, not a promised `UNION ALL` order. Text assertions can establish that a distributed plan is present; proving the precise MergeTop-before-LIMIT relationship still requires inspecting the saved physical plan or a future structured-plan checker.
+
+The stability check is separate from ANN recall and relevance. Equal results can still be consistently wrong, so a customer regression pack should also supply independently established `exact_ids` whenever possible. Plan assertions establish that the intended distributed path is present; a single-CN smoke pass cannot validate the multi-CN fix. Repeating 30 times is an operational detection profile, not a proof that a nondeterministic bug is impossible.
+
+## Bounds and delivery
+
+The v1 result-retention cap still applies: 100,000 executions and 1 million retained IDs per scenario. Stability checks run at effective client concurrency 1 to make repeated outcomes comparable; the generic `--concurrency` flag remains for other scenarios. All endpoint connections are closed before test-database cleanup. The report records source endpoint addresses and physical plans. Pack SQL remains trusted release content; `session_sql` accepts only session-scoped `SET` statements and the runner rejects mutating query keywords at preflight.
+
+The included eight-row v2 smoke scenario proves CTE/multi-column/duplicate-ID extraction and stable-multiset reporting. It cannot reproduce #28943. A seeded million-row `vecf32(1024)` pack with the incident's two POST-mode LIMIT 200 branches, filters, `lists=1024`, fixed query vector, and independently established truth is still required for a field regression claim. Multi-CN validation must run against direct CN endpoints or a proxy whose physical plan proves two-CN dispatch.
+
+## Prototype evidence
+
+Focused Go tests and race tests cover multiset order independence, duplicate multiplicity, drift, a stable but incorrect answer, multi-column ID extraction, and missing physical-plan evidence. On a local MatrixOne v4.2.1 single-CN container, the v2 smoke pack passed three repeated CTE/UNION executions and recorded one distinct result multiset. The same smoke pack routed through two separate client connections using two endpoint aliases also passed and recorded alternating endpoint labels. A deliberate negative pack selected `CONNECTION_ID()` as its ID: the two pinned sessions returned different multisets, the tool reported two distinct results with zero worst overlap, exited nonzero, and still dropped the generated database. These tests validate the detector and cleanup; they do not validate the actual two-CN IVF fix.

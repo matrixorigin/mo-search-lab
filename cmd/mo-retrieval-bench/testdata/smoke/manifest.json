@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "dataset": "smoke_8",
+  "ddl": ["CREATE TABLE documents (id varchar(16) PRIMARY KEY, body text, embedding vecf32(3), allow_access varchar(16), delete_flag int)"],
+  "loads": [{"file": {"path": "documents.csv", "sha256": "c6365c990bad79e625a12f7c1f358c22021461e6abb035f3b1b56c98293f7c19"}, "table": "documents", "rows": 8}],
+  "indexes": [
+    "CREATE INDEX idx_vec USING ivfflat ON documents(embedding) lists=2 op_type 'vector_l2_ops'",
+    "CREATE FULLTEXT INDEX idx_body ON documents(body)"
+  ],
+  "scenarios": [
+    {"path": "vector.json", "sha256": "9038af7d2eb301d0d1ccb4e592b3ccd2ba915d9b8ae92a5a54bd061f26483eee"},
+    {"path": "fulltext.json", "sha256": "18c7dc8e4287e11a21643e541eb75269c04ab1a528653f0534eb45e737439125"},
+    {"path": "hybrid.json", "sha256": "e78cff358a4abf7292e405e42c0760c21b5a1c056ce7a85fb06a1c83d46347e6"},
+    {"path": "filter.json", "sha256": "6a81a3940500d786f43ef1c1899c88bfaa1efb0c1e367444202cee412ad7ecff"},
+    {"path": "stability.json", "sha256": "d145eae5405ced3ec5338a4279e6df2a792584a9b38b7a4ee7e9faf71dd172d8"}
+  ]
+}

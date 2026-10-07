@@ -1,0 +1,10 @@
+{
+  "id": "fulltext",
+  "route": "sql",
+  "sql": "SELECT id FROM documents WHERE MATCH(body) AGAINST (? IN BOOLEAN MODE) AND allow_access = 'OPEN' AND delete_flag = 0 ORDER BY MATCH(body) AGAINST (? IN BOOLEAN MODE) DESC, id LIMIT 2",
+  "args": ["text", "text"],
+  "queries": {"path": "fulltext.jsonl", "sha256": "97283148af3498c2d9d1a7586063ca7fd4449e0151762bcbd9e39c2af3413a7c"},
+  "oracle": "qrels",
+  "top_k": 2,
+  "min_score": 0.5
+}

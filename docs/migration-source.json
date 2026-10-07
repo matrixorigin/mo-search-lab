@@ -1,0 +1,332 @@
+{
+  "source_repository": "github.com/matrixorigin/matrixone",
+  "source_head": "d23ab4442583eb8a4684dbd2d71971d2476fcf94",
+  "source_snapshot_version": "v0.8.1",
+  "extracted_version": "v0.8.2",
+  "source_includes_uncommitted_v8_and_v81": true,
+  "files": [
+    {
+      "source": "LICENSE",
+      "target": "LICENSE",
+      "sha256": "6c19024823eb2b0bec7f349de122667592d51d0a07cfab65963f820b14a129b2"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/README.md",
+      "target": "cmd/mo-retrieval-bench/README.md",
+      "sha256": "626f30c1d57e7ae3678b656860ebf759258dfdb99535661c3c12bb7eace236c4"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/main.go",
+      "target": "cmd/mo-retrieval-bench/main.go",
+      "sha256": "9984657adebfde5b4d3752c28bd2f682b32e2d000fbf0117fee3a677c4490e77"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/mixed.go",
+      "target": "cmd/mo-retrieval-bench/mixed.go",
+      "sha256": "4e724a2ddf92e7c53bb6ee4f29e012c6063eaec1b35fd7be398d7adf5b79adc2"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/mixed_test.go",
+      "target": "cmd/mo-retrieval-bench/mixed_test.go",
+      "sha256": "223021a11a17c67d08345e8ba4bc97f35be314775fd14148f0b7cae9d1f3d911"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/oracle.go",
+      "target": "cmd/mo-retrieval-bench/oracle.go",
+      "sha256": "de69242b3063f97cdf4fa657c2d61c04ee13359153207a7745bf801e3a940cf9"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/oracle_test.go",
+      "target": "cmd/mo-retrieval-bench/oracle_test.go",
+      "sha256": "ff148de34821c9d78b0b61f17879b3b019134aa82fbd9b7fd00f833f7e7fdf4a"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/pack.go",
+      "target": "cmd/mo-retrieval-bench/pack.go",
+      "sha256": "f3b79d502ab8f6d38065924db01414164199fa1e000f4535b0bb67a17168ec49"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/pack_test.go",
+      "target": "cmd/mo-retrieval-bench/pack_test.go",
+      "sha256": "70b9768f4487e2a581bf5dea114fb5ae567100008a14090c18d3d6d8c22c0371"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/profiles.go",
+      "target": "cmd/mo-retrieval-bench/profiles.go",
+      "sha256": "015f15dc66168c257c799f13e82f63a9c29de26c80062592ad1ad1f3a9fab777"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/profiles_test.go",
+      "target": "cmd/mo-retrieval-bench/profiles_test.go",
+      "sha256": "e9bc086f5fa256266da6fef17056df657d17b033ceb6e747ad4598b0d91c8f55"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report.go",
+      "target": "cmd/mo-retrieval-bench/report.go",
+      "sha256": "063c99794fe959acbf5f97c944ecaff636ed74e3c525dfab792c1ce05c1bed5c"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report_charts_test.go",
+      "target": "cmd/mo-retrieval-bench/report_charts_test.go",
+      "sha256": "05ae9e17aa1a284638a07a886d54ed344df7878dddc0a85b457573a110b5f949"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report_findings.go",
+      "target": "cmd/mo-retrieval-bench/report_findings.go",
+      "sha256": "d0517596cefafc701dddcf19bf88dc9f8f7ae3a8f3b6ab568b2307c93801ce7d"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report_findings_test.go",
+      "target": "cmd/mo-retrieval-bench/report_findings_test.go",
+      "sha256": "f4f64ecd8157df5308b2b360fc0a0412c5f3ad1e2980269a3e93e3a854aa1c5e"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report_latency.go",
+      "target": "cmd/mo-retrieval-bench/report_latency.go",
+      "sha256": "fc4ca7d43e2e0d12e11af891bf43be5c00d44aaa6fd8841a290e34bb42beb1e5"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report_load.go",
+      "target": "cmd/mo-retrieval-bench/report_load.go",
+      "sha256": "fbfaaa7153499cb829c3b0235d209c863580fd15064875b300c1bfa43e629ea2"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report_matrix.go",
+      "target": "cmd/mo-retrieval-bench/report_matrix.go",
+      "sha256": "383a815653813aced06e3d4511f9ed1eebdbb3780e0b239fabc5e928f9dfbdc3"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report_overview.go",
+      "target": "cmd/mo-retrieval-bench/report_overview.go",
+      "sha256": "2b24a8663b59bf5bf364bf689e9cacefa4ded56f64427a655f752f21ab5a2f0a"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report_quality.go",
+      "target": "cmd/mo-retrieval-bench/report_quality.go",
+      "sha256": "9d0d1d5834e5c67226c26279f12389a618a760db27bc5a629dc60b0c87bdef9f"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/report_test.go",
+      "target": "cmd/mo-retrieval-bench/report_test.go",
+      "sha256": "9a93cf85fb172fd627563efbafd98e44f9d92c6d7dcaa64975c22b60e7ea42b0"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/run.go",
+      "target": "cmd/mo-retrieval-bench/run.go",
+      "sha256": "176e27db0d78e11944a9cbf52944b4d69d696ac7ba7f4ebc4e78f8466d470e6b"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/run_flags.go",
+      "target": "cmd/mo-retrieval-bench/run_flags.go",
+      "sha256": "2cd3aafbfd9b8f917ef7944d3eb8236206e510c749ad318bcdaa8a979b08349a"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/run_test.go",
+      "target": "cmd/mo-retrieval-bench/run_test.go",
+      "sha256": "47a6ffc7d4ad9a899864172d7ae9422c5ef4c3169db765e401957fdf41eac7b5"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/stability.go",
+      "target": "cmd/mo-retrieval-bench/stability.go",
+      "sha256": "7f748f511f2d6c74cfcef1861e84199e42434bbc3f4c951b70326dda89098343"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/stability_test.go",
+      "target": "cmd/mo-retrieval-bench/stability_test.go",
+      "sha256": "c2fc034ab7b159e7701a7aeddafa850800e130b8757b894c00ed3aed4e17fd8c"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/terminal_charts.go",
+      "target": "cmd/mo-retrieval-bench/terminal_charts.go",
+      "sha256": "2415a40addebbc4c08e59748bfa8076e217453c22f298051dc9dc0fdc2538576"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/terminal_reports.go",
+      "target": "cmd/mo-retrieval-bench/terminal_reports.go",
+      "sha256": "b2d11ad21cbc9c048f4a04bb7d4c270a66863ba361fde055a2dbafdd00f1bc97"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/terminal_test.go",
+      "target": "cmd/mo-retrieval-bench/terminal_test.go",
+      "sha256": "b3266af934966a48dbe535d819e8e6e11604b80e0b907650d4f11ae54c56610c"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/terminal_ui.go",
+      "target": "cmd/mo-retrieval-bench/terminal_ui.go",
+      "sha256": "24d23cd27dd5ed45d5216f6259109d4f261a8a5bc088b1c20bb28f47990641af"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/documents.csv",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/documents.csv",
+      "sha256": "c6365c990bad79e625a12f7c1f358c22021461e6abb035f3b1b56c98293f7c19"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/filter.json",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/filter.json",
+      "sha256": "6a81a3940500d786f43ef1c1899c88bfaa1efb0c1e367444202cee412ad7ecff"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/filter.jsonl",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/filter.jsonl",
+      "sha256": "8a6556c0aa414a4767eaabe315cdd1ed510b233e1d572089ea42cfc1efa8a5be"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/fulltext.json",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/fulltext.json",
+      "sha256": "18c7dc8e4287e11a21643e541eb75269c04ab1a528653f0534eb45e737439125"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/fulltext.jsonl",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/fulltext.jsonl",
+      "sha256": "97283148af3498c2d9d1a7586063ca7fd4449e0151762bcbd9e39c2af3413a7c"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/hybrid.json",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/hybrid.json",
+      "sha256": "e78cff358a4abf7292e405e42c0760c21b5a1c056ce7a85fb06a1c83d46347e6"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/hybrid.jsonl",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/hybrid.jsonl",
+      "sha256": "2cf4ba9ad4762cfbfdd51e9ca47a77f1ef76fef618011d8da63f8c5732343429"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/manifest.json",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/manifest.json",
+      "sha256": "bf6b799a1821f346eac71aa1a5a5ae89eff7367d675858b04510cacf85801099"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/stability.json",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/stability.json",
+      "sha256": "d145eae5405ced3ec5338a4279e6df2a792584a9b38b7a4ee7e9faf71dd172d8"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/stability.jsonl",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/stability.jsonl",
+      "sha256": "5cba9b7d837dcea89ebc425a13f168de7ed9f58b413bf3e2f9eaa0883f80ba11"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/vector.json",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/vector.json",
+      "sha256": "9038af7d2eb301d0d1ccb4e592b3ccd2ba915d9b8ae92a5a54bd061f26483eee"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/testdata/smoke/vector.jsonl",
+      "target": "cmd/mo-retrieval-bench/testdata/smoke/vector.jsonl",
+      "sha256": "2945c9b106425fdd4e9e414f346c7e6a27e5a81553171123bb3ad564f90552b8"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/benchmark_elasticsearch.py",
+      "target": "tools/benchmark_elasticsearch.py",
+      "sha256": "8754d7e99dfa7697f0718d7c3cc20354d2d079fa8148781c3e3390ce40daca16"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/prepare_anli_pack.py",
+      "target": "tools/prepare_anli_pack.py",
+      "sha256": "913e62f3ce813d2504a005560470c7c258992be98b2e24b58f13b1023dd35af8"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/prepare_filtered_gist.py",
+      "target": "tools/prepare_filtered_gist.py",
+      "sha256": "fec2db32285eb1a3b8b078be710db73cd2922f50821e3aa8f65d583662e09111"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/prepare_fulltext_functional.py",
+      "target": "tools/prepare_fulltext_functional.py",
+      "sha256": "8804c72375760040c916385217265e24a89860ff8a5023e03400145700fdd32b"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/prepare_public_pack.py",
+      "target": "tools/prepare_public_pack.py",
+      "sha256": "727fb2a728599ec4fd32ed77ba2edb2fa2bb7f84288c9e63fcb47c4d94659db0"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/render_database_workloads.py",
+      "target": "tools/render_database_workloads.py",
+      "sha256": "09d1627929c85be189d9beb8bb40ff5e8aa17853dae6df587737526e3f02a3c3"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/render_es_reference.py",
+      "target": "tools/render_es_reference.py",
+      "sha256": "4e5d84339c88e19591fa68f248643d42a56cf8bb53ff5af44da359166324bfaa"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/render_single_concurrency.py",
+      "target": "tools/render_single_concurrency.py",
+      "sha256": "8220e5b1aef665e980727e839b8e6d4be03015de2db8ee34c948bf5e57835946"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/render_t2_health_portal.py",
+      "target": "tools/render_t2_health_portal.py",
+      "sha256": "6af065a6f8c6444f27232c2955c43605198ced451673cbace2d456ad026aa27a"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/test_benchmark_elasticsearch.py",
+      "target": "tools/test_benchmark_elasticsearch.py",
+      "sha256": "830975d13aed1ec2a14c9d4cd02817db1ff2a7ad5d30a6183eab509e3c08c640"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/test_prepare_anli_pack.py",
+      "target": "tools/test_prepare_anli_pack.py",
+      "sha256": "88d18795dddd81da73364c1ce27b67e87fab8d18e7ce8a5aa50baeaea16a4768"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/test_prepare_public_pack.py",
+      "target": "tools/test_prepare_public_pack.py",
+      "sha256": "cbcd7d32e9a36018a163270f98505709f6a0f2f535977f8322fb8f69e1b6a044"
+    },
+    {
+      "source": "cmd/mo-retrieval-bench/tools/verify_database_runs.py",
+      "target": "tools/verify_database_runs.py",
+      "sha256": "798095e4611132e25a7b6a59bc364032aca5c1f136c462149ae4005acd61eb6a"
+    },
+    {
+      "source": "docs/design/field_retrieval_benchmark_es_v1.md",
+      "target": "docs/design/field_retrieval_benchmark_es_v1.md",
+      "sha256": "9807e9615087cb17551e9e676cc01f613ae97e3d4f89c8676987335a1b8fcab1"
+    },
+    {
+      "source": "docs/design/field_retrieval_benchmark_v1.md",
+      "target": "docs/design/field_retrieval_benchmark_v1.md",
+      "sha256": "a97df819226da1ccfabeeb684350840b4e4401449d977f0fa981959c73a9179e"
+    },
+    {
+      "source": "docs/design/field_retrieval_benchmark_v2.md",
+      "target": "docs/design/field_retrieval_benchmark_v2.md",
+      "sha256": "3e81c9c71b86f138a6f4e1817ec13f82f05deef6c5a5ea14d23a46db4587ad3a"
+    },
+    {
+      "source": "docs/design/field_retrieval_benchmark_v3.md",
+      "target": "docs/design/field_retrieval_benchmark_v3.md",
+      "sha256": "ba89f3bd79ed6a735d45548b1a3a8ea92c8ab083f4cf59c31f4a0d100eee569e"
+    },
+    {
+      "source": "docs/design/field_retrieval_benchmark_v4.md",
+      "target": "docs/design/field_retrieval_benchmark_v4.md",
+      "sha256": "8ced71e7fb35b2fd2bce67544619f268605334776bc4002c94db0209a6e8ce5a"
+    },
+    {
+      "source": "docs/design/field_retrieval_benchmark_v5.md",
+      "target": "docs/design/field_retrieval_benchmark_v5.md",
+      "sha256": "860e1a1406329e87f394ac81aae4cdaf6a44f1b5f8cef4813364af036916d44f"
+    },
+    {
+      "source": "docs/design/field_retrieval_benchmark_v6.md",
+      "target": "docs/design/field_retrieval_benchmark_v6.md",
+      "sha256": "2a99a06be11123da0e09eb4b2373225becb2d8b390e49b1725f542c062e42a7b"
+    },
+    {
+      "source": "docs/design/field_retrieval_benchmark_v7.md",
+      "target": "docs/design/field_retrieval_benchmark_v7.md",
+      "sha256": "ea239c7b90efd56eb452289b21a92a78ecee519d76ce5eacc6d8374c4b7c424e"
+    },
+    {
+      "source": "docs/design/field_retrieval_benchmark_v8.md",
+      "target": "docs/design/field_retrieval_benchmark_v8.md",
+      "sha256": "955fa5e9084b5940a0474731aa14231c53dbabf3a09a3ebf03fcee769d2652cd"
+    }
+  ],
+  "intentional_documentation_updates": [
+    "cmd/mo-retrieval-bench/README.md"
+  ]
+}
