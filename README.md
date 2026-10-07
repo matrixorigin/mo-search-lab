@@ -52,6 +52,8 @@ export MO_BENCH_PASSWORD
 
 ## 数据包
 
+公开数据包：[datasets-v1 Release](https://github.com/matrixorigin/mo-search-lab/releases/tag/datasets-v1)。下载、分卷合并及校验步骤见 [数据包分发说明](docs/datasets.md)。
+
 | Pack | 数据 | 主要用途 |
 | --- | --- | --- |
 | GIST filtered v7 | 100 万条、960 维公开向量 | IVF 召回、PRE/POST 过滤、1/4/8 并发、重复稳定性 |
