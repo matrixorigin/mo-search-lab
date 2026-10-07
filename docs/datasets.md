@@ -11,6 +11,7 @@ archive.sha256
 README.md
 DATASETS.json
 LICENSE_NOTICES.md
+verification.json
 ```
 
 数据包约 4 GB，包含 GIST filtered v7、T2Ranking anli ngram v3 和 GIST/T2 paired SQL workload v7。二进制单独下载或构建。每个分卷小于 2 GiB，三个 pack 的共享 CSV 在归档中只存一份。
