@@ -7,7 +7,7 @@ This command is a standalone client for on-site retrieval checks. It connects to
 Build from this standalone repository for the customer's OS/architecture. Its own `go.mod` pins a pure-Go MySQL protocol driver and terminal libraries; this package does not import MatrixOne kernel packages or CGo vector dependencies:
 
 ```sh
-CGO_ENABLED=0 GOWORK=off go build -mod=readonly -trimpath -ldflags='-s -w -X main.version=v0.8.3' -o mo-search-lab ./cmd/mo-search-lab
+CGO_ENABLED=0 GOWORK=off go build -mod=readonly -trimpath -ldflags='-s -w -X main.version=v0.9.9' -o mo-search-lab ./cmd/mo-search-lab
 ./mo-search-lab validate --pack ./cmd/mo-search-lab/testdata/smoke
 export MO_BENCH_PASSWORD='...'
 ./mo-search-lab run --host 127.0.0.1 --port 6001 --user root \
@@ -19,14 +19,16 @@ In the prototype release archive, the smoke pack is at `packs/smoke`; use that p
 
 The default output directory has a timestamped name. The command prints its path and refuses to overwrite an existing report. `report.html` is self-contained and `report.json` contains the raw per-query observations and SQL. A failed run still writes both files after pack validation. The process exits nonzero if setup, quality checks, SQL execution, or cleanup fails. The test database is dropped on exit; `--keep-db` preserves it for investigation.
 
-### Default health profile (v0.8.1)
+The HTML has **性能测试 / 运行环境** tabs. Performance charts open first; the environment tab shows the snapshot from that same run, with diagnostic details and raw JSON links. Tabs work offline, support arrow keys and Home/End, and both sections remain readable when printing or with JavaScript disabled. Historical reports without a captured snapshot say so explicitly. Standalone `inspect` reports remain environment pages.
+
+### Default health profile (v0.9.9)
 
 `run --pack DIR` now runs all scenarios in that pack with this profile:
 
 | Setting | Default |
 | --- | --- |
 | Ordinary queries | All queries, each measured once |
-| Client concurrency levels | 1, 4, 8 |
+| Client concurrency levels | 1, 4, 8; filter-only validation packs default to serial (1) |
 | Unmeasured warmup | 5 queries per scenario/profile |
 | Independent stability | Up to 5 queries, each repeated 30 times, concurrency 1 |
 | Query/plan timeout | 3 minutes; preparation retains its 10x multiplier |
@@ -366,10 +368,17 @@ all business result columns while preserving only IDs in reports.
 
 ```sh
 mo-search-lab run --pack /data/gist-filtered --report-dir reports/filters \
-  --concurrency-levels 1,4,8 --stability-repeat 30 --stability-query-limit 5
+  --concurrency 1 --stability-repeat 30 --stability-query-limit 5
 mo-search-lab run --pack /data/gist-t2-workload --report-dir reports/workload \
   --concurrency-levels 1,4,8 --mixed-scenarios vector,fulltext --warmup 5
 ```
+
+The dedicated filter pack defaults to one serial worker even when concurrency
+flags are omitted. Its charts compare PRE/POST at 100%, 10% and 1% visibility
+using only measured concurrency-1 samples. Recall, returned count, serial
+throughput and latency percentiles are shown as grouped bars. Explicit
+concurrency flags remain available for separate investigations; the ordinary
+GIST/T2 performance and paired SQL profiles retain their own settings.
 
 The second command runs isolated SQLs first, then both simultaneously, on the
 same unchanged data/indexes. At paired concurrency C, at most 2C SQLs execute.
@@ -405,8 +414,9 @@ python3 tools/render_database_workloads.py --reports-root reports \
 ```
 
 The independent verifier expects a completed full profile (100 queries,
-1/4/8, five stability queries repeated 30 times for filters). Record terminal
-process status as `run-status.json` with `complete: true` and `exit_code` before
+serial filters, 1/4/8 paired SQL, five stability queries repeated 30 times
+for filters). Record terminal process status as `run-status.json` with
+`complete: true` and `exit_code` before
 publishing. Smaller field profiles still produce their own standalone CLI
 report. Large CSV packs are delivered separately from the binary archive.
 

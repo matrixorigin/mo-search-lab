@@ -34,10 +34,12 @@ export MO_BENCH_PASSWORD
 
 每个 `run` 自动完成校验、建测试库、导入、建索引、预热、测量、生成报告及删测试库。使用 `--keep-db` 可保留测试库。报告目录每次用新路径。
 
+打开生成的 `report.html`，通过顶部 **性能测试 / 运行环境** Tab 查看图表和同次运行的环境配置；环境页保留诊断详情与原始记录下载入口。HTML 可离线打开，无外部依赖。
+
 | 默认设置 | 值 |
 | --- | --- |
 | 普通查询 | 所选 pack 的全部查询，各测量一次 |
-| 客户端并发 | 1、4、8 |
+| 客户端并发 | 1、4、8；过滤验证专用 pack 默认串行（1） |
 | 预热 | 每个场景/并发档位 5 次，不计入测量 |
 | 包内稳定性场景 | 最多 5 条查询，各重复 30 次，并发 1 |
 | 单查询超时 | 3 分钟；导入/建索引为该预算的 10 倍 |
@@ -49,6 +51,19 @@ export MO_BENCH_PASSWORD
 终端使用 `ui --reports reports`：`d` 选择数据集/运行记录，`1`～`6` 切换页面，`p` 切换 P90/P95/P99，`q` 退出。
 
 浏览器直接打开每个运行目录中的 `report.html`。在远程机器执行时，通过 SSH/SFTP 把 `reports` 拷回电脑再打开。HTML 自包含，可离线查看；`report.json` 保存原始测量、SQL、输入校验和和执行计划。
+
+### MO 环境与配置
+
+`run` 自动采集 MO 版本、构建信息、选定 SQL 默认变量、账号可见 CN 及节点上报缓存/内存配置（含默认值）。也可先进行只读检查：
+
+```bash
+./mo-search-lab inspect "${CONN[@]}" \
+  --mo-config /path/to/cn.toml --report-dir reports/environment-001
+```
+
+`--mo-config` 可重复提供多个节点 TOML，展示内存/磁盘缓存等显式配置。`--environment-file` 补充部署与资源声明，`--monitoring-config` 接入有明确目标的 Grafana/Prometheus 曲线；三者都可用于 `run`。报告区分 SQL、文件配置、声明、监控与客户端来源，未采集的信息显示未知。格式和示例见 [环境与配置说明](docs/environment.md)。
+
+环境报告按版本与部署、节点与缓存、检索参数、资源监控分区。配置差异、异常节点和采集失败集中在“诊断详情”；完整文件身份与校验和保留在原始 JSON。CLI 环境页按 `e`，纯文本追加 `--environment-details`。节点配置标为启动上报快照，不采集 Iceberg、ETL 或 TMP 配置。
 
 ## 数据包
 
@@ -74,7 +89,7 @@ make check        # Go 测试、vet、格式检查及 Python 脚本测试
 make release      # 生成 dist/ 下的 Linux amd64 工具包及 SHA-256
 ```
 
-默认版本为 v0.8.3；可用 `make release VERSION=v0.8.3` 显式指定。构建和测试均使用本仓库的 `go.mod`、`go.sum`，关闭父目录 Go workspace。
+默认版本为 v0.9.9；可用 `make release VERSION=v0.9.9` 显式指定。构建和测试均使用本仓库的 `go.mod`、`go.sum`，关闭父目录 Go workspace。
 
 验证小样本数据包：
 
