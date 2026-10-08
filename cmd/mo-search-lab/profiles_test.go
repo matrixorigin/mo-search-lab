@@ -87,6 +87,7 @@ func TestRunHealthDefaultsAndOverrides(t *testing.T) {
 		}
 		var err error
 		o.concurrencyLevels, err = runConcurrencyLevels(fs, *levels)
+		o.defaultConcurrency = !explicitRunConcurrency(fs)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -140,5 +141,40 @@ func TestRunHealthDefaultsAndOverrides(t *testing.T) {
 	ordinary.QueriesData = make([]query, 3334)
 	if _, err := planScenarioRuns([]loadedScenario{ordinary}, defaults); err == nil {
 		t.Fatal("default complete sweep bypassed aggregate result-ID admission")
+	}
+}
+
+func TestFilterValidationDefaultsToSerialWithoutChangingOtherLoads(t *testing.T) {
+	queries := []query{{ID: "q", AllowedIDRanges: [][2]int64{{0, 999}}}}
+	ordinary := loadedScenario{scenario: scenario{ID: "pre", Route: "sql", Oracle: "ann_recall", TopK: 100}, QueriesData: queries}
+	stable := loadedScenario{scenario: scenario{ID: "repeat", Route: "sql", Oracle: "stable_multiset", TopK: 100, MinRepeats: 30}, QueriesData: queries}
+	pack := []loadedScenario{ordinary, stable}
+	requested := options{defaultConcurrency: true, concurrency: 1, concurrencyLevels: []int{1, 4, 8}, repeat: 1, stabilityRepeat: 30}
+	serial := defaultPackProfile(pack, requested)
+	runs, err := planScenarioRuns(pack, serial)
+	if err != nil || len(runs) != 2 || runs[0].Options.concurrency != 1 || runs[1].Options.concurrency != 1 || runs[1].Options.repeat != 30 || !reflect.DeepEqual(serial.concurrencyLevels, []int{1}) {
+		t.Fatalf("filter-only pack still sweeps concurrency: %+v %v", runs, err)
+	}
+	if !reflect.DeepEqual(requested.concurrencyLevels, []int{1, 4, 8}) {
+		t.Fatal("serial planning mutated original options")
+	}
+	explicit := requested
+	explicit.defaultConcurrency = false
+	if got := defaultPackProfile(pack, explicit); !reflect.DeepEqual(got.concurrencyLevels, []int{1, 4, 8}) {
+		t.Fatal("explicit investigation profile was ignored")
+	}
+	mixed := requested
+	mixed.mixedScenarios = []string{"pre", "text"}
+	if got := defaultPackProfile(pack, mixed); !reflect.DeepEqual(got.concurrencyLevels, []int{1, 4, 8}) {
+		t.Fatal("paired SQL load was forced to serial")
+	}
+	unfiltered := ordinary
+	unfiltered.QueriesData = []query{{ID: "q"}}
+	text := ordinary
+	text.Oracle = "qrels"
+	for _, scenarios := range [][]loadedScenario{{unfiltered}, {ordinary, text}, {stable}, {}} {
+		if got := defaultPackProfile(scenarios, requested); !reflect.DeepEqual(got.concurrencyLevels, []int{1, 4, 8}) {
+			t.Fatal("non-filter pack changed its default concurrency")
+		}
 	}
 }

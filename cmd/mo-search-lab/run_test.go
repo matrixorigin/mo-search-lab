@@ -151,4 +151,11 @@ func TestCancelledSetupPublishesUnexecutedProfiles(t *testing.T) {
 	if err != nil || len(view.ConcurrencySeries) != 1 || view.ConcurrencySeries[0].HasSamples || view.HasLatencySamples {
 		t.Fatalf("unexecuted checks generated curves: %+v %v", view, err)
 	}
+	ordinary.QueriesData = []query{{ID: "q", AllowedIDRanges: [][2]int64{{0, 99}}}}
+	stable.QueriesData = ordinary.QueriesData
+	p.Scenarios = []loadedScenario{ordinary, stable}
+	report, err = runBenchmark(ctx, p, options{host: "127.0.0.1", port: 1, repeat: 1, concurrency: 1, concurrencyLevels: []int{1, 4, 8}, defaultConcurrency: true, stabilityRepeat: 3, timeout: time.Second})
+	if !errors.Is(err, context.Canceled) || len(report.Scenarios) != 2 || len(report.Profile.ConcurrencyLevels) != 1 || report.Profile.ConcurrencyLevels[0] != 1 || report.Scenarios[0].EffectiveConcurrency != 1 {
+		t.Fatalf("serial filter plan/profile was not recorded before execution: %+v %v", report, err)
+	}
 }

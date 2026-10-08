@@ -142,12 +142,19 @@ def verify(folder: Path, pack: Path, binary: Path):
                 original = next(a for a in report['scenarios'] if a['id'] == s['base_scenario_id'] and a['effective_concurrency'] == c)
                 assert s['sql'] == original['sql'] and s['queries_sha256'] == original['queries_sha256'] and s['scenario_sha256'] == original['scenario_sha256']
     else:
-        assert len(report['scenarios']) == 24 and verified_quality == 1800 and verified_stability == 900
+        levels = report['profile'].get('concurrency_levels') or [report['profile']['concurrency']]
+        assert levels in ([1], [1,4,8])  # serial filter profile and frozen legacy sweep
+        quality_ids = [id for id,config in scenes.items() if config['oracle'] == 'ann_recall']
+        stability_ids = [id for id,config in scenes.items() if config['oracle'] == 'stable_multiset']
+        assert len(quality_ids) == len(stability_ids) == 6
+        assert len(report['scenarios']) == len(quality_ids)*len(levels)+len(stability_ids)
+        assert verified_quality == sum(len(query_sets[id]) for id in quality_ids)*len(levels)
+        assert verified_stability == len(stability_ids)*5*30
         for id, config in scenes.items():
             if config['oracle'] != 'ann_recall':
                 continue
             profiles = [s for s in report['scenarios'] if s['id'] == id]
-            assert sorted(s['effective_concurrency'] for s in profiles) == [1,4,8]
+            assert sorted(s['effective_concurrency'] for s in profiles) == levels
             assert all('ivf_search' in s['plan'] for s in profiles)
             assert all(q['allowed_id_ranges'] == [[0,q['params']['cutoff'] - 1]] for q in query_sets[id])
     shutil.copy2(pack / 'manifest.json',folder / 'pack-manifest.json')

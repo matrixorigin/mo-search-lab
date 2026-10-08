@@ -1,5 +1,11 @@
 # Field retrieval benchmark v7: filtered ANN and concurrent SQL workloads
 
+## 当前过滤执行与展示（v0.9.9）
+
+过滤专用 pack 默认串行（并发 1），不执行 1/4/8 扫描。普通 GIST、全文及两路 SQL 资源竞争仍使用各自的负载配置。运行器按全包的过滤真值契约识别过滤验证：普通场景为 ANN 召回、补充场景为重复稳定性、全部 SQL 查询具有 allowed_id_ranges；显式并发参数与 mixed 场景不受默认策略影响。无需修改已经发布的 pack 或输入哈希。
+
+汇总报告以 100%、10%、1% 可见比例为横轴，用 PRE/POST 分组柱状图展示召回、返回数量、串行吞吐和 P90/P95/P99 延迟。当前页面使用历史运行中已有的并发 1 测量，历史其他档位保留在原始 JSON。发布检查只要求各过滤案例有一份完整的串行结果与执行计划；独立复算同时兼容新串行报告和冻结的旧并发报告。重复稳定性继续串行测量。
+
 ## Authorized scope and design decision
 
 2026-10-06: the user approved implementing the smaller next step: reuse GIST1M

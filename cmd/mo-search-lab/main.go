@@ -42,6 +42,7 @@ type options struct {
 	keepDB              bool
 	queryEndpoints      []string
 	concurrencyLevels   []int
+	defaultConcurrency  bool
 	stabilityRepeat     int
 	stabilityQueryLimit int
 	mixedScenarios      []string
@@ -78,6 +79,7 @@ func main() {
 			err = fmt.Errorf("invalid run flags: --pack, repeat 1..100000, concurrency 1..128, warmup 0..10000, positive timeout/port, nonnegative query-limit are required")
 		} else {
 			o.concurrencyLevels, err = runConcurrencyLevels(fs, *levels)
+			o.defaultConcurrency = !explicitRunConcurrency(fs)
 			if *mixed != "" {
 				for _, id := range strings.Split(*mixed, ",") {
 					o.mixedScenarios = append(o.mixedScenarios, strings.TrimSpace(id))
@@ -109,6 +111,7 @@ func main() {
 			}
 			if err == nil {
 				var runs []scenarioRun
+				o = defaultPackProfile(p.Scenarios, o)
 				runs, err = planScenarioRuns(p.Scenarios, o)
 				if err == nil {
 					err = validateMixedSelection(p.Scenarios, o, runs)

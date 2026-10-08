@@ -44,7 +44,7 @@ func registerRunFlags(fs *flag.FlagSet, o *options) (levels, mixed, endpoints *s
 	fs.IntVar(&o.queryLimit, "query-limit", 0, "maximum distinct queries per scenario (0 means all)")
 	fs.IntVar(&o.repeat, "repeat", 1, "measured repetitions per query")
 	fs.IntVar(&o.concurrency, "concurrency", 1, "single client concurrency level; overrides the default sweep when --concurrency-levels is omitted")
-	levels = fs.String("concurrency-levels", "1,4,8", "comma-separated client concurrency levels; an explicit value overrides --concurrency; reuse the same data/index")
+	levels = fs.String("concurrency-levels", "1,4,8", "client concurrency levels; filter-only packs default to serial; explicit levels override --concurrency")
 	mixed = fs.String("mixed-scenarios", "", "two ordinary SQL scenario IDs to also execute as concurrent paired queries")
 	fs.IntVar(&o.stabilityRepeat, "stability-repeat", 30, "repetitions for stability scenarios (0 inherits --repeat)")
 	fs.IntVar(&o.stabilityQueryLimit, "stability-query-limit", 5, "distinct queries for stability scenarios (0 inherits --query-limit)")
@@ -68,4 +68,14 @@ func runConcurrencyLevels(fs *flag.FlagSet, raw string) ([]int, error) {
 		raw = ""
 	}
 	return parseConcurrencyLevels(raw)
+}
+
+func explicitRunConcurrency(fs *flag.FlagSet) bool {
+	explicit := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "concurrency" || f.Name == "concurrency-levels" {
+			explicit = true
+		}
+	})
+	return explicit
 }

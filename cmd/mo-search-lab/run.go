@@ -158,6 +158,7 @@ type Report struct {
 }
 
 func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runErr error) {
+	o = defaultPackProfile(p.Scenarios, o)
 	report = Report{
 		ToolVersion: version, Dataset: p.Manifest.Dataset, ManifestSHA256: p.Digest,
 		StartedAt: time.Now().UTC(), Status: "failed", ResourceMetrics: "unavailable",
