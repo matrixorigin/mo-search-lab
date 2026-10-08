@@ -297,20 +297,94 @@ func (m *terminalModel) sqlLines() []string {
 }
 
 func (m *terminalModel) environmentLines() []string {
-	r := m.doc.View.Report
-	profile, _ := json.MarshalIndent(r.Profile, "", "  ")
-	lines := []string{"MO 版本: " + r.MatrixOneVersion, "测量工具版本: " + r.ToolVersion, "测量二进制 SHA-256: " + r.BinarySHA256, "数据清单 SHA-256: " + r.ManifestSHA256, "测试库: " + r.Database, "原始记录中的清理状态: " + r.Cleanup, "资源利用率: " + r.ResourceMetrics, "", "测量参数", string(profile), "", "数据准备"}
-	for _, s := range r.Stages {
-		lines = append(lines, fmt.Sprintf("%s: %.3f s / %d 行 / %s", s.Name, s.Seconds, s.Rows, s.Error))
+	r, v := m.doc.View.Report, m.doc.View.EnvironmentView
+	lines := []string{"版本与部署"}
+	appendRows := func(rows []environmentRow) {
+		for _, row := range rows {
+			lines = append(lines, row.Label+": "+row.Value+" ["+row.Source+"]")
+		}
 	}
-	lines = append(lines, "", "输入文件")
-	for _, input := range r.Inputs {
-		lines = append(lines, fmt.Sprintf("%s / %d 行 / SHA-256 %s", input.Path, input.Rows, input.SHA256))
+	appendRows(v.Summary)
+	if v.ClientSummary != "" {
+		lines = append(lines, "压测客户端: "+v.ClientSummary)
 	}
-	lines = append(lines, "", "补充机器配置 · environment.json", m.doc.Evidence["environment.json"], "", "原始错误 / 未通过断言")
-	if len(r.Errors) == 0 {
-		lines = append(lines, "无记录")
+	if v.Diagnostics.NodeNotice != "" {
+		lines = append(lines, v.Diagnostics.NodeNotice)
+	}
+	lines = append(lines, "", "节点与缓存", v.SnapshotNote)
+	if len(v.Caches) == 0 {
+		lines = append(lines, "未取得存储与缓存配置。")
 	} else {
+		lines = append(lines, "节点 | 存储服务 | 后端 | 每节点内存缓存 | 每节点磁盘缓存")
+		for _, cache := range v.Caches {
+			lines = append(lines, strings.Join([]string{cache.Node, cache.Service, cache.Backend, cache.Memory, cache.Disk}, " | ")+" ["+cache.Source+"]")
+		}
+	}
+	if len(v.MetadataCaches) > 0 {
+		lines = append(lines, "", "Metadata 缓存 · 每节点容量")
+		for _, cache := range v.MetadataCaches {
+			lines = append(lines, cache.Label+": "+cache.Value+" ["+cache.Source+"] · "+cache.Basis)
+		}
+		lines = append(lines, "环境默认容量按服务端系统总内存推算；运行时调整未确认。")
+	}
+	lines = append(lines, "", "检索参数 · SQL 初始会话值，场景 SQL 可以覆盖")
+	for _, group := range v.Retrieval {
+		lines = append(lines, group.Label)
+		appendRows(group.Rows)
+	}
+	if len(v.Retrieval) == 0 {
+		lines = append(lines, "未取得 SQL 检索参数。")
+	}
+	lines = append(lines, "", "资源监控 · "+v.MonitorStatus, v.MonitorNote)
+	appendRows(v.Monitoring)
+	for _, plot := range m.doc.View.ResourcePlots {
+		lines = append(lines, "", plot.Name+" · "+plot.Unit+" · "+plot.Status)
+		if plot.Error != "" {
+			lines = append(lines, plot.Error)
+		}
+		for _, series := range plot.Lines {
+			lines = append(lines, fmt.Sprintf("%s: %d 样本 · min/mean/max %.3g / %.3g / %.3g", series.Label, series.Samples, series.Minimum, series.Mean, series.Maximum))
+		}
+	}
+	if !m.environmentDetails {
+		lines = append(lines, "", "e 展开诊断详情；纯文本可加 --environment-details。")
+	} else {
+		lines = append(lines, "", "诊断详情")
+		for _, node := range v.Diagnostics.Nodes {
+			lines = append(lines, node.Label+": "+node.State+" / "+node.Address+" / "+node.ID)
+		}
+		if len(v.Diagnostics.Configs) > 0 {
+			lines = append(lines, "配置差异")
+		}
+		for _, config := range v.Diagnostics.Configs {
+			line := config.Node + " / " + config.Parameter + ": 快照 " + config.Snapshot + " | 默认 " + config.Default
+			if config.hasFile {
+				line += " | 文件 " + config.File
+			}
+			lines = append(lines, line+" ["+config.Difference+"]")
+		}
+		if len(v.Diagnostics.Missing) > 0 {
+			lines = append(lines, "采集缺失")
+		}
+		appendRows(v.Diagnostics.Missing)
+		if v.Diagnostics.Count == 0 {
+			lines = append(lines, "这份记录没有诊断条目。")
+		}
+		if r.RunKind != "environment_inspection" {
+			profile, _ := json.MarshalIndent(r.Profile, "", "  ")
+			lines = append(lines, "", "运行身份与输入记录", "工具版本: "+r.ToolVersion, "二进制 SHA256: "+r.BinarySHA256)
+			lines = append(lines, "数据清单 SHA256: "+r.ManifestSHA256, "测试库: "+r.Database+" / "+r.Cleanup, "测量参数", string(profile))
+			for _, stage := range r.Stages {
+				lines = append(lines, fmt.Sprintf("%s: %.3f s / %d 行 / %s", stage.Name, stage.Seconds, stage.Rows, stage.Error))
+			}
+			for _, input := range r.Inputs {
+				lines = append(lines, fmt.Sprintf("%s / %d 行 / SHA256 %s", input.Path, input.Rows, input.SHA256))
+			}
+		}
+		lines = append(lines, "", "e 收起诊断详情。")
+	}
+	if len(r.Errors) > 0 {
+		lines = append(lines, "", "原始错误 / 未通过断言")
 		lines = append(lines, r.Errors...)
 	}
 	return lines
@@ -350,4 +424,4 @@ MRR 关注第一个答案；nDCG 同时关注多个答案的等级和排序。
 
 操作：d 选数据集/运行；←/→ 切换数据集；r 切换历史运行；
 Tab、1..6 切换页；p 切换 P90/P95/P99；c 切换已测并发；
-n/b 切换 SQL 场景；↑/↓、j/k、PgUp/PgDn 滚动；? 说明；q 退出。`
+n/b 切换 SQL 场景；e 展开环境详情；↑/↓、j/k、PgUp/PgDn 滚动；? 说明；q 退出。`

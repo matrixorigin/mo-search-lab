@@ -8,6 +8,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.1
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/mattn/go-runewidth v0.0.23
+	github.com/pelletier/go-toml/v2 v2.4.3
 )
 
 require (

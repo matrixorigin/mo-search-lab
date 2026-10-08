@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net"
 	"os"
 	"sort"
 	"strings"
@@ -137,23 +136,25 @@ type ScenarioReport struct {
 }
 
 type Report struct {
-	ToolVersion      string           `json:"tool_version"`
-	BinarySHA256     string           `json:"binary_sha256"`
-	Dataset          string           `json:"dataset"`
-	ManifestSHA256   string           `json:"manifest_sha256"`
-	Inputs           []InputFile      `json:"inputs"`
-	Database         string           `json:"database"`
-	MatrixOneVersion string           `json:"matrixone_version,omitempty"`
-	StartedAt        time.Time        `json:"started_at"`
-	FinishedAt       time.Time        `json:"finished_at"`
-	Status           string           `json:"status"`
-	Profile          Profile          `json:"profile"`
-	Stages           []Stage          `json:"stages"`
-	Scenarios        []ScenarioReport `json:"scenarios"`
-	Errors           []string         `json:"errors,omitempty"`
-	Cleanup          string           `json:"cleanup"`
-	ResourceMetrics  string           `json:"resource_metrics"`
-	IndexSQL         []string         `json:"index_sql,omitempty"`
+	RunKind          string               `json:"run_kind,omitempty"`
+	ToolVersion      string               `json:"tool_version"`
+	BinarySHA256     string               `json:"binary_sha256"`
+	Dataset          string               `json:"dataset"`
+	ManifestSHA256   string               `json:"manifest_sha256"`
+	Inputs           []InputFile          `json:"inputs"`
+	Database         string               `json:"database"`
+	MatrixOneVersion string               `json:"matrixone_version,omitempty"`
+	StartedAt        time.Time            `json:"started_at"`
+	FinishedAt       time.Time            `json:"finished_at"`
+	Status           string               `json:"status"`
+	Profile          Profile              `json:"profile"`
+	Stages           []Stage              `json:"stages"`
+	Scenarios        []ScenarioReport     `json:"scenarios"`
+	Errors           []string             `json:"errors,omitempty"`
+	Cleanup          string               `json:"cleanup"`
+	ResourceMetrics  string               `json:"resource_metrics"`
+	IndexSQL         []string             `json:"index_sql,omitempty"`
+	Environment      *EnvironmentEvidence `json:"environment,omitempty"`
 }
 
 func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runErr error) {
@@ -167,7 +168,15 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 	for _, load := range p.Manifest.Loads {
 		report.Inputs = append(report.Inputs, InputFile{load.File.Path, load.File.SHA256, load.Rows})
 	}
+	var inputs environmentInputs
+	var queryStart, queryEnd time.Time
 	defer func() {
+		if inputs.Monitor != nil && !queryStart.IsZero() {
+			report.Environment.Monitoring = collectMonitoring(ctx, *inputs.Monitor, queryStart, queryEnd)
+			report.ResourceMetrics = report.Environment.Monitoring.Status
+		} else if inputs.Monitor != nil {
+			report.Environment.Monitoring.Reason = "query phase was not reached"
+		}
 		report.FinishedAt = time.Now().UTC()
 		if runErr != nil {
 			report.Errors = append(report.Errors, runErr.Error())
@@ -175,6 +184,12 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 			report.Status = "passed"
 		}
 	}()
+	var inputErr error
+	inputs, inputErr = loadEnvironmentInputs(o)
+	if inputErr != nil {
+		return report, inputErr
+	}
+	report.Environment = newEnvironmentEvidence(inputs)
 	runs, err := planScenarioRuns(p.Scenarios, o)
 	if err != nil {
 		return report, err
@@ -201,20 +216,8 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 		return report, fmt.Errorf("hash executable: %w", err)
 	}
 
-	config := mysql.NewConfig()
-	config.User = o.user
-	config.Passwd = getenv(o.passwordEnv)
-	config.Net = "tcp"
-	config.Addr = net.JoinHostPort(o.host, fmt.Sprint(o.port))
+	config := makeSQLConfig(o)
 	report.Profile.SQLAddress = config.Addr
-	config.Timeout = o.timeout
-	// Query contexts enforce the shorter query budget. The socket ceiling must
-	// accommodate LOAD/CREATE INDEX, whose context budget is ten times longer.
-	config.ReadTimeout = o.timeout * 10
-	config.WriteTimeout = o.timeout * 10
-	config.AllowNativePasswords = true
-	config.InterpolateParams = true
-	config.Params = map[string]string{"charset": "utf8mb4"}
 	root, err := sql.Open("mysql", config.FormatDSN())
 	if err != nil {
 		return report, err
@@ -229,6 +232,7 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 	if err := root.QueryRowContext(versionCtx, "SELECT VERSION()").Scan(&report.MatrixOneVersion); err != nil {
 		return report, fmt.Errorf("read MatrixOne version: %w", err)
 	}
+	collectSQLServerEnvironment(ctx, root, report.Environment, report.MatrixOneVersion, o.timeout)
 	var nonce [4]byte
 	if _, err := rand.Read(nonce[:]); err != nil {
 		return report, err
@@ -308,6 +312,10 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 			return report, err
 		}
 	}
+	queryStart = time.Now().UTC()
+	// Capture the end before closing sessions and dropping the database. Range
+	// requests run only after cleanup, outside all measured query batches.
+	defer func() { queryEnd = time.Now().UTC() }()
 	for i, run := range runs {
 		// All prior workers and leases have finished. Start with fresh server
 		// sessions so a previous scenario's SET values cannot become defaults.

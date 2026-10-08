@@ -29,6 +29,7 @@ type terminalModel struct {
 	scenario, scroll      int
 	width, height         int
 	chooser               bool
+	environmentDetails    bool
 	choice, chooserScroll int
 }
 
@@ -39,6 +40,7 @@ func runTerminalUI(args []string) error {
 	dataset := fs.String("dataset", "", "initial dataset ID, exactly as recorded in report.json")
 	section := fs.String("section", "overview", "initial page: overview, concurrency, quality, stability, sql, environment, help")
 	plain := fs.Bool("plain", false, "print the selected page without interactive terminal controls")
+	environmentDetails := fs.Bool("environment-details", false, "expand configuration differences, unusual node states and collection failures")
 	percentile := fs.Int("percentile", 95, "latency percentile: 90, 95, 99")
 	level := fs.Int("concurrency", 0, "show one measured concurrency level (0 shows all)")
 	scenario := fs.String("scenario-id", "", "initial scenario for the SQL page")
@@ -71,7 +73,7 @@ func runTerminalUI(args []string) error {
 		}
 		return err
 	}
-	m := &terminalModel{datasets: datasets, warnings: warnings, width: *width, height: 32, section: page, percentile: *percentile}
+	m := &terminalModel{datasets: datasets, warnings: warnings, width: *width, height: 32, section: page, percentile: *percentile, environmentDetails: *environmentDetails}
 	if *dataset != "" {
 		found := false
 		for i, ds := range datasets {
@@ -87,6 +89,17 @@ func runTerminalUI(args []string) error {
 	m.load()
 	if m.loadError != nil {
 		return m.loadError
+	}
+	if m.doc.View.RunKind == "environment_inspection" {
+		var explicitSection bool
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "section" {
+				explicitSection = true
+			}
+		})
+		if !explicitSection {
+			m.section = 5
+		}
 	}
 	if *level != 0 {
 		found := false
@@ -209,6 +222,11 @@ func (m *terminalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			m.run = (m.run + 1) % len(m.datasets[m.dataset].Runs)
 			m.load()
+		case "e":
+			if m.section == 5 {
+				m.environmentDetails = !m.environmentDetails
+				m.scroll = 0
+			}
 		case "tab", "shift+tab":
 			delta := 1
 			if key == "shift+tab" {
@@ -276,6 +294,9 @@ func (m *terminalModel) headerLines() []string {
 	dataset := m.datasets[m.dataset]
 	run := dataset.Runs[m.run]
 	status := "断言通过"
+	if m.doc != nil && m.doc.View.RunKind == "environment_inspection" {
+		status = "SQL 入口可访问"
+	}
 	if run.Status != "passed" {
 		status = "存在未通过检查"
 	}

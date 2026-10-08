@@ -45,6 +45,9 @@ type options struct {
 	stabilityRepeat     int
 	stabilityQueryLimit int
 	mixedScenarios      []string
+	environmentFile     string
+	moConfigs           configPaths
+	monitoringConfig    string
 }
 
 func main() {
@@ -128,6 +131,26 @@ func main() {
 				}
 			}
 		}
+	case "inspect":
+		fs := flag.NewFlagSet("inspect", flag.ExitOnError)
+		var o options
+		registerConnectionFlags(fs, &o)
+		registerEnvironmentFlags(fs, &o)
+		fs.StringVar(&o.reportDir, "report-dir", "environment-"+time.Now().UTC().Format("20060102-150405.000000000"), "new output directory")
+		_ = fs.Parse(os.Args[2:])
+		if o.port < 1 || o.port > 65535 || o.timeout <= 0 || o.timeout > (1<<63-1)/10 {
+			err = fmt.Errorf("inspect requires a valid port and positive bounded timeout")
+		} else if err = ensureReportTarget(o.reportDir); err == nil {
+			var report Report
+			report, err = inspectEnvironment(context.Background(), o)
+			if report.Dataset != "" {
+				if writeErr := writeReport(o.reportDir, report); writeErr != nil {
+					err = fmt.Errorf("inspection: %v; write report: %w", err, writeErr)
+				} else {
+					fmt.Printf("report: %s/report.html\n", o.reportDir)
+				}
+			}
+		}
 	case "version":
 		fmt.Println(version)
 	case "ui":
@@ -167,5 +190,5 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: mo-search-lab validate --pack DIR | run --pack DIR [options] | render --report-dir DIR | ui --reports DIR | version")
+	fmt.Fprintln(os.Stderr, "usage: mo-search-lab validate --pack DIR | run --pack DIR [options] | inspect [options] | render --report-dir DIR | ui --reports DIR | version")
 }

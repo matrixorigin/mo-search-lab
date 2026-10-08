@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import tempfile
 from render_single_concurrency import CHART_CSS, render_chart
+from render_report_tabs import with_environment_tab
 
 
 def quality_metric_help(panel_class="detail-panel", scroll_class="chart-scroll") -> str:
@@ -29,7 +30,10 @@ def quality_metric_help(panel_class="detail-panel", scroll_class="chart-scroll")
 </details>'''
 
 
-def render(root: Path, ngram: str, gojieba: str, functional: str) -> str:
+def render(root: Path, ngram: str, gojieba: str, functional: str,
+           environment_report: str | None = None, layout_report: str | None = None) -> str:
+    if bool(environment_report) != bool(layout_report):
+        raise ValueError("environment_report and layout_report must be supplied together")
     reports = [(name, json.loads((root / folder / "report.json").read_text()), folder)
                for name, folder in (("ngram", ngram), ("gojieba", gojieba))]
     function_report = json.loads((root / functional / "report.json").read_text())
@@ -142,7 +146,7 @@ def render(root: Path, ngram: str, gojieba: str, functional: str) -> str:
     workload_style = re.search(r'<style id="database-chart-style">.*?</style>',workload_panel,re.S)
     workload_style = workload_style.group() if workload_style else ''
     workload_panel = workload_panel.replace(workload_style,'') if workload_style else workload_panel
-    return f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T2Ranking · anli 场景评测</title><style>{style}
+    body = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T2Ranking · anli 场景评测</title><style>{style}
 *{{box-sizing:border-box}}body{{background:#f3f5f6;color:#213442}}main{{max-width:1220px;padding:36px 24px 64px}}.eyebrow{{font-size:12px;letter-spacing:.13em;color:#63747d}}h1{{font-size:34px;letter-spacing:-.03em;margin:12px 0}}.title-tail{{display:inline-block}}.lead{{max-width:85ch}}.dataset-selector{{display:flex;align-items:center;gap:18px;background:#fff;border-left:3px solid #193b55;padding:16px;margin:24px 0}}select{{max-width:100%;padding:9px 12px;font-size:14px;font-family:inherit;border:1px solid #becbd3;background:#fff;border-radius:4px;color:#213442}}.comparison-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}}.comparison-grid .card{{margin:12px 0}}.comparison-grid h2{{font-size:20px;margin:0 0 6px}}.plot{{display:block;width:100%;min-width:300px}}.plot text{{fill:#5c6c7d;font:20px ui-monospace,Consolas,monospace}}.plot-legend{{display:flex;gap:8px 20px;flex-wrap:wrap;font-size:13px;margin:12px 0}}.plot-legend span{{display:flex;gap:7px;align-items:center}}.plot-legend i{{width:10px;height:10px;border-radius:2px}}.case-scope{{border-left:3px solid #087f8c;padding:8px 18px;margin:24px 0;max-width:95ch}}.links{{display:flex;gap:12px 20px;flex-wrap:wrap;font-size:13px;margin:20px 0}}.parser-heading{{margin-top:36px}}.control{{margin:10px 0}}.status-flag{{color:#8a6028}}.finding strong{{font-size:23px}}a:focus-visible,select:focus-visible{{outline:2px solid #087f8c;outline-offset:3px}}
 {CHART_CSS}
 @media(max-width:900px){{.comparison-grid{{grid-template-columns:1fr}}}}@media(max-width:600px){{main{{padding:24px 16px}}h1{{font-size:28px}}.dataset-selector{{display:block}}.dataset-selector label{{display:block;margin-bottom:8px}}.dataset-selector select{{width:100%}}}}
@@ -166,6 +170,7 @@ function bars(){{const key=document.getElementById('quality-metric').value;docum
 function lines(id,key){{const max=Math.max(1,...series.flatMap(s=>s.profiles.map(p=>p[key])))*1.15;let body=axis(max);body+=[1,4,8].map((c,i)=>`<text x="${{85+i*220}}" y="253" text-anchor="middle">${{c}}</text>`).join('')+'<text x="300" y="277" text-anchor="middle">客户端并发</text>';series.forEach((s,i)=>{{const points=s.profiles.map((p,j)=>[85+j*220,225-p[key]/max*190,p]);body+=`<polyline points="${{points.map(p=>p.slice(0,2).join(',')).join(' ')}}" fill="none" stroke="${{colors[i]}}" stroke-width="3"/>`;body+=points.map(([x,y,p])=>`<circle cx="${{x}}" cy="${{y}}" r="5" fill="${{colors[i]}}"><title>${{s.label}} · 并发 ${{p.effective_concurrency}} · ${{key}} ${{fmt(p[key])}}</title></circle>`).join('')}});document.getElementById(id).innerHTML=body}}
 document.getElementById('quality-metric').addEventListener('change',bars);document.getElementById('latency-metric').addEventListener('change',()=>lines('latency-plot',document.getElementById('latency-metric').value));bars();lines('qps-plot','qps');lines('latency-plot','p95_ms');window.addEventListener('pageshow',()=>{{document.getElementById('dataset-select').value='t2ranking.html'}});
 </script></main></body></html>'''
+    return with_environment_tab(body, root, environment_report, layout_report) if environment_report else body
 
 
 if __name__ == "__main__":
@@ -174,9 +179,12 @@ if __name__ == "__main__":
     cli.add_argument("--ngram-report", required=True)
     cli.add_argument("--gojieba-report", required=True)
     cli.add_argument("--functional-report", required=True)
+    cli.add_argument("--environment-report", help="independent inspect report shown in a separate tab")
+    cli.add_argument("--layout-report", help="benchmark report rendered by the current binary")
     args = cli.parse_args()
     target = args.reports_root / "datasets/t2ranking.html"
-    body = render(args.reports_root, args.ngram_report, args.gojieba_report, args.functional_report)
+    body = render(args.reports_root, args.ngram_report, args.gojieba_report, args.functional_report,
+                  args.environment_report, args.layout_report)
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=target.parent,

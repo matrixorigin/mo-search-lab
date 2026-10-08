@@ -193,8 +193,11 @@ func loadTerminalDocument(run terminalRun) (*terminalDocument, error) {
 	if report.Dataset != run.Dataset || report.ToolVersion != run.ToolVersion || !report.StartedAt.Equal(run.StartedAt) || report.Status != run.Status {
 		return nil, fmt.Errorf("report metadata changed; reopen ui to refresh the catalogue")
 	}
-	if len(report.Scenarios) == 0 || len(report.Scenarios) > 256 {
+	if len(report.Scenarios) == 0 && (report.RunKind != "environment_inspection" || report.Environment == nil) || len(report.Scenarios) > 256 {
 		return nil, fmt.Errorf("expected 1..256 measured scenarios")
+	}
+	if report.RunKind == "environment_inspection" && len(report.Scenarios) != 0 {
+		return nil, fmt.Errorf("environment inspection must not contain measured workloads")
 	}
 	var executions, ids int
 	for _, scenario := range report.Scenarios {
@@ -243,6 +246,10 @@ func loadTerminalDocument(run terminalRun) (*terminalDocument, error) {
 		doc.Returned = append(doc.Returned, mean)
 	}
 	for _, name := range []string{"environment.json", "stability-tie-analysis.json"} {
+		if name == "environment.json" && report.Environment != nil {
+			doc.Evidence[name] = "已包含在 report.json 的环境记录中"
+			continue
+		}
 		path := filepath.Join(filepath.Dir(run.Path), name)
 		var evidence map[string]json.RawMessage
 		err := readTerminalJSON(path, 1<<20, &evidence)

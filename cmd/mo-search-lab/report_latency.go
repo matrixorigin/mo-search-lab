@@ -55,6 +55,8 @@ type reportView struct {
 	HiddenProfiles           int
 	Checks                   checkSummary
 	RetrievalQuality         []retrievalQualityRow
+	EnvironmentView          environmentPresentation
+	ResourcePlots            []resourcePlot
 }
 
 type reportSelection struct {
@@ -71,6 +73,8 @@ func makeReportView(report Report, levels ...int) (reportView, error) {
 func makeSelectedReportView(report Report, selection reportSelection) (reportView, error) {
 	levels := selection.Levels
 	view := reportView{Report: report, RendererVersion: version}
+	view.EnvironmentView = buildEnvironmentPresentation(report)
+	view.ResourcePlots = buildResourcePlots(report.Environment)
 	view.Checks = summarizeChecks(report)
 	view.Scenarios = make([]ScenarioReport, 0, len(report.Scenarios))
 	selected, present := make(map[int]bool), make(map[int]bool)

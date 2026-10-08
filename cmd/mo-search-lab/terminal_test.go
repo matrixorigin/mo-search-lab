@@ -130,7 +130,7 @@ func TestTerminalMeasurementsAndEscaping(t *testing.T) {
 		2: {"Recall@100", "0.375", "平均返回 1.00", "nDCG@10", "0.200", "0.400", "0.600", "0.500"},
 		3: {"●!×·", "集合 1 种，顺序 2 种", "失败 2/3"},
 		4: {"SELECT id FROM vectors", "LIMIT 100", "fixed-queries"},
-		5: {"资源利用率: unavailable", "environment.json", "未提供", "test-measurement"},
+		5: {"版本与部署", "节点与缓存", "资源监控 · 未采集", "未提供", "--environment-details"},
 		6: {"MRR@10", "排名倒数", "最多 2C 条 SQL"},
 	} {
 		m.section = page
@@ -149,6 +149,11 @@ func TestTerminalMeasurementsAndEscaping(t *testing.T) {
 		if !strings.Contains(body.String(), "原始整体判定: 存在未通过检查") {
 			t.Fatal("raw failure status hidden")
 		}
+	}
+	m.section, m.environmentDetails = 5, true
+	var details bytes.Buffer
+	if err := m.writePlain(&details); err != nil || !strings.Contains(details.String(), "test-measurement") || !strings.Contains(details.String(), "运行身份与输入记录") {
+		t.Fatal("expanded environment lost measurement identity")
 	}
 	for _, width := range []int{40, 60, 100} {
 		m.width = width
