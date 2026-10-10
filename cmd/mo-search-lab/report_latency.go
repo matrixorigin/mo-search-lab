@@ -222,9 +222,9 @@ const latencyHTML = `
   <p class="chart-note">P95 表示本次样本中至少 95% 的成功 SQL 查询耗时不超过该值。各场景共用线性时间轴，标签保留实际数值。</p>
   {{range .LatencyRows}}
   <div class="latency-row">
-    <div class="scenario-label"><strong>{{.ID}}</strong>{{range .SessionSQL}}<code>{{.}}</code>{{end}}<small>{{if gt .Concurrency 0}}客户端并发上限 {{.Concurrency}} · {{end}}成功 SQL 样本 {{.Samples}}{{if and (gt .Samples 0) (lt .Samples 100)}} · P99 为样本最大值{{end}}</small></div>
+    <div class="scenario-label"><strong>{{scenarioName .ID}}</strong>{{range .SessionSQL}}<code>{{.}}</code>{{end}}<small>{{if gt .Concurrency 0}}客户端并发上限 {{.Concurrency}} · {{end}}成功 SQL 样本 {{.Samples}}{{if and (gt .Samples 0) (lt .Samples 100)}} · P99 为样本最大值{{end}}</small></div>
     {{if .Bars}}
-    <div class="chart-scroll"><svg class="latency-bars" viewBox="0 0 800 98" role="img" aria-label="{{.ID}} 的 P90、P95、P99 延迟">
+    <div class="chart-scroll"><svg class="latency-bars" viewBox="0 0 800 98" role="img" aria-label="{{scenarioName .ID}} 的 P90、P95、P99 延迟">
       {{range $.LatencyTicks}}<line x1="{{printf "%.2f" .X}}" x2="{{printf "%.2f" .X}}" y1="0" y2="92" class="chart-grid"/>{{end}}
       {{range .Bars}}<g transform="translate(0 {{.Y}})" class="bar-{{.Label}}"><title>{{.Label}}：{{printf "%.2f" .Value}} ms</title><rect width="{{printf "%.2f" .Width}}" height="19" rx="3"/><text x="{{printf "%.2f" .Width}}" dx="10" y="14">{{.Label}} {{printf "%.2f" .Value}} ms</text></g>{{end}}
     </svg></div>
@@ -233,7 +233,7 @@ const latencyHTML = `
   {{else}}<p class="empty-chart">未执行查询场景，暂无延迟数据。</p>
   {{end}}
   {{if .HasLatencySamples}}<div class="latency-axis"><div></div><div class="chart-scroll"><svg viewBox="0 0 800 26" role="img" aria-label="共享时间轴，单位毫秒">{{range .LatencyTicks}}<text x="{{printf "%.2f" .X}}" y="17" {{if gt .X 0.0}}text-anchor="middle"{{end}}>{{printf "%.1f" .Value}}</text>{{end}}<text x="800" y="17" text-anchor="end">ms</text></svg></div></div>{{end}}
-  <p class="chart-note">统计包含 SQL 成功但质量校验未通过的查询，排除 SQL 错误和预热。使用最近秩法 ceil(p × 样本数)。少于 100 条样本时，P99 等于样本最大耗时。缓存、并发和运行顺序会影响跨场景的延迟比较。</p>
+  <p class="chart-note">统计所有成功 SQL 的实测延迟，排除 SQL 错误和预热。使用最近秩法 ceil(p × 样本数)。少于 100 条样本时，P99 等于样本最大耗时。缓存、并发和运行顺序会影响跨场景的延迟比较。</p>
 </section>`
 
 const latencyStyle = `

@@ -25,26 +25,9 @@ type scenarioRun struct {
 	Options  options
 }
 
-// Filter validation compares SQL modes/eligibility at one worker. Identify
-// the dedicated pack by its query contract so frozen released packs work too.
-// Explicit profiles and mixed SQL investigations retain their requested load.
+// All packs start with one worker. Additional load is explicitly selected.
 func defaultPackProfile(scenarios []loadedScenario, o options) options {
-	if !o.defaultConcurrency || len(o.mixedScenarios) > 0 || len(scenarios) == 0 {
-		return o
-	}
-	hasRecall := false
-	for _, s := range scenarios {
-		if s.Route != "sql" || (s.Oracle != "ann_recall" && s.Oracle != "stable_multiset") || len(s.QueriesData) == 0 {
-			return o
-		}
-		hasRecall = hasRecall || s.Oracle == "ann_recall"
-		for _, q := range s.QueriesData {
-			if len(q.AllowedIDRanges) == 0 {
-				return o
-			}
-		}
-	}
-	if hasRecall {
+	if o.defaultConcurrency {
 		o.concurrency, o.concurrencyLevels = 1, []int{1}
 	}
 	return o

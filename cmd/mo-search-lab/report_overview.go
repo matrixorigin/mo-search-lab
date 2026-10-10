@@ -53,8 +53,12 @@ type chartOverview struct {
 }
 
 func overviewLabel(s concurrencySeries) string {
+	label := scenarioDisplayName(s.ID)
 	if len(s.SessionSQL) > 0 {
-		return s.ID + " · " + strings.TrimPrefix(s.SessionSQL[0], "SET ")
+		return label + " · " + strings.TrimPrefix(s.SessionSQL[0], "SET ")
+	}
+	if label != s.ID {
+		return label
 	}
 	return s.ID + "（默认参数）"
 }
@@ -94,6 +98,9 @@ func buildChartOverview(groups []concurrencySeries) chartOverview {
 	var qualities []qualityGroup
 	for _, s := range groups {
 		key, name := "boolean", "结果断言通过率"
+		if s.Points[0].QualityMode == "observe" {
+			key, name = "observed_result", "结果匹配度"
+		}
 		if s.Oracle == "ann_recall" {
 			key, name = fmt.Sprint("recall", s.Points[0].TopK), fmt.Sprintf("平均 Recall@%d", s.Points[0].TopK)
 		} else if s.Oracle == "qrels" {
@@ -117,9 +124,15 @@ func buildChartOverview(groups []concurrencySeries) chartOverview {
 			if quality.key == "boolean" && p.SQLSuccesses > 0 {
 				value = float64(p.SQLSuccesses-p.AssertionFailures) / float64(p.SQLSuccesses)
 			}
+			if p.QualityMode == "observe" {
+				return value, fmt.Sprintf("成功 SQL %d；SQL 错误 %d", p.SQLSuccesses, p.SQLFailures), p.HasSamples
+			}
 			return value, fmt.Sprintf("单查询断言通过 %d/%d；阈值 %.3f", p.SQLSuccesses-p.AssertionFailures, p.SQLSuccesses, p.MinScore), p.HasSamples
 		})
 		chart.Note = "均值不代替单查询断言。悬停查看达标数量；执行错误不计入质量均值。"
+		if quality.groups[0].Points[0].QualityMode == "observe" {
+			chart.Note = "记录实测质量，不设验收阈值；执行错误不计入质量均值。"
+		}
 		view.Qualities = append(view.Qualities, chart)
 	}
 	return view

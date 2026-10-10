@@ -17,6 +17,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -91,6 +92,7 @@ type loadedScenario struct {
 }
 
 type pack struct {
+	ctx       context.Context
 	Root      string
 	Manifest  manifest
 	Digest    string
@@ -103,6 +105,13 @@ const maxJSONFileSize = 256 << 20
 var safeIdentifier = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{0,63}$`)
 
 func loadPack(dir string) (*pack, error) {
+	return loadPackContext(context.Background(), dir)
+}
+
+func loadPackContext(ctx context.Context, dir string) (*pack, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	root, err := filepath.EvalSymlinks(dir)
 	if err != nil {
 		return nil, err
@@ -111,7 +120,7 @@ func loadPack(dir string) (*pack, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &pack{Root: root}
+	p := &pack{Root: root, ctx: ctx}
 	manifestPath, err := p.safePath("manifest.json")
 	if err != nil {
 		return nil, err
@@ -145,6 +154,9 @@ func loadPack(dir string) (*pack, error) {
 	}
 	seen := make(map[string]bool)
 	for _, ref := range m.Scenarios {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		_, body, err := p.verifyFile(ref)
 		if err != nil {
 			return nil, err
@@ -265,6 +277,11 @@ func digest(b []byte) string {
 }
 
 func (p *pack) verifyFile(ref fileRef) (string, []byte, error) {
+	ctx := p.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	notifyProgress(ctx, "校验文件 · "+ref.Path)
 	if ref.Path == "" || len(ref.SHA256) != 64 {
 		return "", nil, fmt.Errorf("path and SHA-256 required for %q", ref.Path)
 	}
@@ -287,7 +304,7 @@ func (p *pack) verifyFile(ref fileRef) (string, []byte, error) {
 		}
 	}
 	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
+	if _, err := io.Copy(h, contextReader{ctx: ctx, read: f.Read}); err != nil {
 		return "", nil, err
 	}
 	if !strings.EqualFold(hex.EncodeToString(h.Sum(nil)), ref.SHA256) {

@@ -115,7 +115,8 @@ def verify(folder: Path, pack: Path, binary: Path):
                     denominator = max(len(first),len(ids))
                     overlap = common / denominator if denominator else 1
                     near(r['score'],overlap)
-                    assert r['pass'] == (ids == first)
+                    # Old records used acceptance outcomes; observed runs use SQL outcomes.
+                    assert r['pass'] == (True if report.get('measurement_mode') == 'observe' else ids == first)
                     failures += not r['pass']
                     reorders += overlap == 1 and ids != first
                     max_changed = max(max_changed,denominator - common)

@@ -32,7 +32,7 @@ type options struct {
 	host                string
 	port                int
 	user                string
-	passwordEnv         string
+	password            string // Never serialized into reports.
 	reportDir           string
 	queryLimit          int
 	repeat              int

@@ -15,9 +15,7 @@ sha256sum -c SHA256SUMS
 ./mo-search-lab version
 
 # Bash；替换地址、端口及账号。
-CONN=(--host 10.0.0.10 --port 6001 --user BENCH_USER)
-read -r -s -p 'MO 密码：' MO_BENCH_PASSWORD
-export MO_BENCH_PASSWORD
+CONN=(--host 10.0.0.10 --port 6001 --user BENCH_USER --password '你的密码')
 
 ./mo-search-lab run "${CONN[@]}" \
   --pack packs/gist_1m_filtered_v7 --report-dir reports/gist-001
@@ -39,16 +37,36 @@ export MO_BENCH_PASSWORD
 | 默认设置 | 值 |
 | --- | --- |
 | 普通查询 | 所选 pack 的全部查询，各测量一次 |
-| 客户端并发 | 1、4、8；过滤验证专用 pack 默认串行（1） |
+| 客户端并发 | 默认 1；CLI 按数据集勾选额外的 4、8，并发过滤检查保持串行 |
 | 预热 | 每个场景/并发档位 5 次，不计入测量 |
 | 包内稳定性场景 | 最多 5 条查询，各重复 30 次，并发 1 |
 | 单查询超时 | 3 分钟；导入/建索引为该预算的 10 倍 |
 
-时间紧时追加 `--query-limit 20 --stability-repeat 10`。这减少查询次数，仍导入全量数据和建立索引。
+需要多并发时，`run` 显式追加 `--concurrency-levels 1,4,8`。
+
+时间紧时追加 `--query-limit 20`。这减少查询次数，仍导入全量数据和建立索引。
+
+运行只记录性能、召回/相关性和重复结果变化，不设通过阈值。数据准备或 SQL 执行错误仍显示运行失败；原始记录的 `measurement_mode: observe` 表明该模式，差异写入 `observations`。旧数据包的 SQL、查询、真值和校验和仍沿用，包内验收阈值和计划断言不执行。
 
 ### 看报告
 
-终端使用 `ui --reports reports`：`d` 选择数据集/运行记录，`1`～`6` 切换页面，`p` 切换 P90/P95/P99，`q` 退出。
+终端使用 `ui --reports reports`：`l` 启动新任务，`d` 选择历史运行，`←/→` 切换该次运行内的测试报告，`Tab` / `Shift-Tab` 切换报告页，`1`～`6` 直达页面，在概览/并发页按 `p` 切换 P90/P95/P99，`q` 退出。
+
+清理旧报告：按 `d` 打开历史列表，`↑↓` 选中一次运行，按 `x` 查看整次删除范围，再按 `y` 确认；`Enter`、`n` 或 `Esc` 取消。删除入口仅在历史列表中显示并生效。确认后永久删除该次运行的全部报告目录、JSON、HTML、附带记录及 `batch.json`，列表自动刷新；其他运行和数据包保留。删除前检查整组报告，含数据文件、未确认条目或已变化文件的目录会拒绝删除。
+
+也可直接从交互式界面开始，无需先运行 `run` 或 `inspect`：
+
+```bash
+./mo-search-lab ui --launch --reports reports --packs packs --password '你的密码'
+```
+
+填写 SQL 地址、端口、账号及密码，选择“性能测试”或“环境检查”。`Enter` 编辑字段，测试项目按 `Enter` 或 `Ctrl-P` 进入勾选列表，选中“开始运行”后按 `Enter` 启动。`run`、`inspect` 和 `ui` 均使用 `--password` 直接传入 SQL 密码；UI 遮蔽显示并允许修改，留空表示空密码，密码不写入报告。默认跑全部查询，各项目只测 1 并发；在测试列表中按空格勾选各数据集下面的 4、8 并发选项。更多设置可减少查询数或提供 TOML/监控配置。两路同时查询项目自动使用 `vector,fulltext`，其它项目保持各自的默认设置；单选数据包时可手动填写两路场景。
+
+所选项目依次执行，运行页显示当前第几项、阶段和耗时。`Esc` / `Ctrl-C` 取消后等待当前项目清理和保存，后续项目停止，已生成的报告保留。多项完成后进入本次结果列表，`Enter` 查看所选报告，`t` 返回列表；单项完成后直接打开报告。每项生成独立目录，汇总目录的 `batch.json` 保存执行状态，历史报告保持可查看。空报告目录会自动打开新任务表单；`--plain` 保持只读输出模式。
+
+终端界面按分组对齐字段，`›` 标出当前选择，底部显示当前操作提示并固定“开始运行”按钮。报告图表的数值列对齐，环境信息按标签和值分列；小窗口优先保留焦点与快捷键。沿用终端字体和背景，设置 `NO_COLOR=1` 可关闭颜色。
+
+首次打开表单默认勾选本地已安装的全部常用项目：向量性能与召回、向量过滤检查、全文检索评测、两路同时查询。列表内 `↑↓` 移动，`空格` 勾选，`s` 全选或清空当前列表，`Enter` 确认，`Esc` 恢复进入前的选择。当前项目显示数据来源、规模和测量范围；`a` 展开小样本、分词对比、参数实验和历史版本，这些需主动勾选。在测试项目字段按 `p` 可指定单个路径；`ui --pack DIR` 也只预选该包。完整 datasets-v1 交付包含其中的过滤、全文与两路测试，未安装的项目不会显示。
 
 浏览器直接打开每个运行目录中的 `report.html`。在远程机器执行时，通过 SSH/SFTP 把 `reports` 拷回电脑再打开。HTML 自包含，可离线查看；`report.json` 保存原始测量、SQL、输入校验和和执行计划。
 
@@ -71,7 +89,7 @@ export MO_BENCH_PASSWORD
 
 | Pack | 数据 | 主要用途 |
 | --- | --- | --- |
-| GIST filtered v7 | 100 万条、960 维公开向量 | IVF 召回、PRE/POST 过滤、1/4/8 并发、重复稳定性 |
+| GIST filtered v7 | 100 万条、960 维公开向量 | IVF 召回、串行 PRE/POST 过滤、重复稳定性 |
 | T2Ranking anli ngram v3 | 230 万段落、500 条冻结查询与相关性标注 | anli 查询形态的全文 TF-IDF/BM25 质量、并发与稳定性 |
 | GIST/T2 SQL workload v7 | 共享前两份 CSV | 两路数据库 SQL 同时执行时的延迟和吞吐 |
 
@@ -89,7 +107,7 @@ make check        # Go 测试、vet、格式检查及 Python 脚本测试
 make release      # 生成 dist/ 下的 Linux amd64 工具包及 SHA-256
 ```
 
-默认版本为 v0.9.9；可用 `make release VERSION=v0.9.9` 显式指定。构建和测试均使用本仓库的 `go.mod`、`go.sum`，关闭父目录 Go workspace。
+默认版本为 v0.13.1；可用 `make release VERSION=v0.13.1` 显式指定。构建和测试均使用本仓库的 `go.mod`、`go.sum`，关闭父目录 Go workspace。
 
 验证小样本数据包：
 
@@ -110,10 +128,12 @@ scripts/                 发布打包
 go.mod / go.sum          工具自己的依赖
 ```
 
-客户新问题通常通过新增场景 JSON、固定查询 JSONL、真值/断言及 manifest 校验和加入数据包，再用同一运行器执行。新增指标或检查类型时扩展运行器和对应测试。
+客户新问题通常通过新增场景 JSON、固定查询 JSONL、真值及 manifest 校验和加入数据包，再用同一运行器执行。新增指标或检查类型时扩展运行器和对应测试。
 
 详细命令、pack schema、测量口径和离线准备流程见 [运行器参考](cmd/mo-search-lab/README.md)。迁移来源与验证见 [独立仓库设计](docs/design/standalone_repository.md)，当前名称与兼容说明见 [MO Search Lab](docs/design/search_lab_name.md)。
 
 ## License
 
 继承原工具的 [Apache License 2.0](LICENSE) 和 Matrix Origin 版权声明。公开数据集的许可与来源随各自数据包记录。
+
+历史列表依据 `batch.json` 把同一次运行分组，显示运行时间、报告数量和总耗时；独立报告作为一次运行显示。`ui --report-dir DIR` 支持整次运行目录，也可从其某份报告打开整组。左右切报告时保留当前页面；切换历史运行时优先保留同一数据集。

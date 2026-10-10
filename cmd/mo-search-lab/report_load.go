@@ -111,16 +111,16 @@ const profileHTML = `<p>查询上限 {{.Profile.QueryLimit}} · 普通查询重�
 <p class="report-nav">{{if .ConcurrencySeries}}<a href="#concurrency">并发表现</a>{{end}}{{if .StabilityScenarios}}<a href="#stability">结果稳定性</a>{{end}}<a href="#latency">延迟分位数</a><a href="report.json">原始记录</a></p>`
 
 const concurrencyHTML = `{{if .ConcurrencySeries}}<section id="concurrency"><section class="card load-intro"><h2>并发表现</h2><p class="lead">固定数据与索引，比较客户端并发档位下的吞吐和延迟。</p><p class="chart-note">QPS = 成功查询执行数 / 测量秒数，包含质量未过线的查询。单 SQL 场景统计 SQL 执行；hybrid_rrf 场景统计两路 SQL 均成功的一次融合请求。{{if .Profile.MixedScenarios}}_mixed 场景分别统计各路成功 SQL，使用同一批次时长；每对作业等待两路完成。{{end}}各档位依次执行，分别预热；有限查询批次与缓存状态会影响结果。这是本次负载下的观察值。</p><p class="chart-note">查询入口数量不能证明 CN 数量。稳定性场景按并发 1 单独执行；实际端点和物理计划见稳定性详情。</p></section>
-{{range .ConcurrencySeries}}<section class="card concurrency-series"><h3>{{.ID}}</h3>{{range .SessionSQL}}<p><code>{{.}}</code></p>{{end}}
+{{range .ConcurrencySeries}}<section class="card concurrency-series"><h3>{{scenarioName .ID}}</h3>{{range .SessionSQL}}<p><code>{{.}}</code></p>{{end}}
 <p class="mobile-scroll-note">图表和表格可左右滑动查看。</p>{{if .HasSamples}}<div class="load-chart-grid">
-  <div class="load-chart"><h4>{{if eq .Route "hybrid_rrf"}}成功融合请求{{else}}成功 SQL{{end}}吞吐 / QPS</h4><div class="chart-legend"><span><i class="qps"></i>{{if eq .Route "hybrid_rrf"}}成功融合请求{{else}}成功 SQL{{end}} / 秒</span></div><div class="chart-scroll"><svg viewBox="0 0 440 202" role="img" aria-label="{{.ID}} 的并发与成功查询 QPS">
+  <div class="load-chart"><h4>{{if eq .Route "hybrid_rrf"}}成功融合请求{{else}}成功 SQL{{end}}吞吐 / QPS</h4><div class="chart-legend"><span><i class="qps"></i>{{if eq .Route "hybrid_rrf"}}成功融合请求{{else}}成功 SQL{{end}} / 秒</span></div><div class="chart-scroll"><svg viewBox="0 0 440 202" role="img" aria-label="{{scenarioName .ID}} 的并发与成功查询 QPS">
     <line x1="64" x2="412" y1="156" y2="156" class="chart-grid"/><line x1="64" x2="412" y1="26" y2="26" class="chart-grid"/>
     <text x="56" y="160" text-anchor="end">0</text><text x="56" y="30" text-anchor="end">{{printf "%.1f" .QPSMaximum}}</text>
     <path d="{{.QPSPath}}" class="load-qps"/>
     {{range .Points}}{{if .HasSamples}}<circle cx="{{printf "%.2f" .X}}" cy="{{printf "%.2f" .QPSY}}" r="4" class="load-qps-dot"><title>并发 {{.EffectiveConcurrency}}：{{printf "%.2f" .QPS}} QPS，成功查询 {{.SQLSuccesses}} 次</title></circle>{{end}}<text x="{{printf "%.2f" .X}}" y="179" text-anchor="middle">{{.EffectiveConcurrency}}</text>{{end}}
     <text x="238" y="199" text-anchor="middle">客户端并发档位</text>
   </svg></div></div>
-  <div class="load-chart"><h4>查询延迟 / ms</h4><div class="chart-legend"><span><i class="p90"></i>P90</span><span><i class="p95"></i>P95</span><span><i class="p99"></i>P99</span></div><div class="chart-scroll"><svg viewBox="0 0 440 202" role="img" aria-label="{{.ID}} 的并发与 P90 P95 P99 延迟">
+  <div class="load-chart"><h4>查询延迟 / ms</h4><div class="chart-legend"><span><i class="p90"></i>P90</span><span><i class="p95"></i>P95</span><span><i class="p99"></i>P99</span></div><div class="chart-scroll"><svg viewBox="0 0 440 202" role="img" aria-label="{{scenarioName .ID}} 的并发与 P90 P95 P99 延迟">
     <line x1="64" x2="412" y1="156" y2="156" class="chart-grid"/><line x1="64" x2="412" y1="26" y2="26" class="chart-grid"/>
     <text x="56" y="160" text-anchor="end">0</text><text x="56" y="30" text-anchor="end">{{printf "%.1f" .LatencyMaximum}}</text>
     <path d="{{.P90Path}}" class="line-p90"/><path d="{{.P95Path}}" class="line-p95"/><path d="{{.P99Path}}" class="line-p99"/>
@@ -128,8 +128,8 @@ const concurrencyHTML = `{{if .ConcurrencySeries}}<section id="concurrency"><sec
     <text x="238" y="199" text-anchor="middle">客户端并发档位</text>
   </svg></div></div>
 </div>{{else}}<p class="empty-chart">此场景尚无成功 SQL 样本，暂无并发曲线。</p>{{end}}
-<div class="chart-scroll"><table class="load-table"><tr><th>客户端并发上限</th><th>查询 / 执行</th><th>{{if eq .Route "hybrid_rrf"}}成功融合请求{{else}}成功 SQL{{end}}</th><th>测量秒数</th><th>QPS</th><th>P90 / P95 / P99 ms</th><th>{{if eq .Oracle "ann_recall"}}平均 Recall@{{(index .Points 0).TopK}}{{else}}质量均值{{end}}</th><th>执行错误</th><th>断言失败</th></tr>
-{{range .Points}}<tr><td>{{.EffectiveConcurrency}}</td><td>{{.SelectedQueries}} / {{.Executions}}</td><td>{{.SQLSuccesses}}</td><td>{{printf "%.3f" .MeasuredSeconds}}</td>{{if .HasSamples}}<td>{{printf "%.2f" .QPS}}</td><td>{{printf "%.2f / %.2f / %.2f" .P90MS .P95MS .P99MS}}</td><td>{{printf "%.3f" .MeanScore}}</td>{{else}}<td colspan="3">无成功 SQL 样本</td>{{end}}<td>{{.SQLFailures}}</td><td>{{.AssertionFailures}}{{if .Error}}<br><span class="fail">{{.Error}}</span>{{end}}</td></tr>{{end}}
+<div class="chart-scroll"><table class="load-table"><tr><th>客户端并发上限</th><th>查询 / 执行</th><th>{{if eq .Route "hybrid_rrf"}}成功融合请求{{else}}成功 SQL{{end}}</th><th>测量秒数</th><th>QPS</th><th>P90 / P95 / P99 ms</th><th>{{if eq .Oracle "ann_recall"}}平均 Recall@{{(index .Points 0).TopK}}{{else}}质量均值{{end}}</th><th>执行错误</th>{{if ne (index .Points 0).QualityMode "observe"}}<th>断言失败</th>{{end}}</tr>
+{{range .Points}}<tr><td>{{.EffectiveConcurrency}}</td><td>{{.SelectedQueries}} / {{.Executions}}</td><td>{{.SQLSuccesses}}</td><td>{{printf "%.3f" .MeasuredSeconds}}</td>{{if .HasSamples}}<td>{{printf "%.2f" .QPS}}</td><td>{{printf "%.2f / %.2f / %.2f" .P90MS .P95MS .P99MS}}</td><td>{{printf "%.3f" .MeanScore}}</td>{{else}}<td colspan="3">无成功 SQL 样本</td>{{end}}<td>{{.SQLFailures}}{{if and (eq .QualityMode "observe") .Error}}<br><span class="fail">{{.Error}}</span>{{end}}</td>{{if ne .QualityMode "observe"}}<td>{{.AssertionFailures}}{{if .Error}}<br><span class="fail">{{.Error}}</span>{{end}}</td>{{end}}</tr>{{end}}
 </table></div>
 
 </section>{{end}}</section>{{end}}`

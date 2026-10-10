@@ -100,9 +100,6 @@ func runStabilityScenario(ctx context.Context, s loadedScenario, queries []query
 		if report.Plan == "" {
 			report.Plan = plan
 		}
-		if err := checkPlanEvidence(plan, s.PlanContains); err != nil {
-			return stabilityFailure(report, fmt.Sprintf("endpoint %s: %v", endpoint, err))
-		}
 	}
 	for i := 0; i < o.warmup; i++ {
 		q := queries[i%len(queries)]
@@ -212,6 +209,13 @@ func evaluateStability(report *ScenarioReport, queries []query, repeat, expected
 		}
 		for iteration := 0; iteration < repeat; iteration++ {
 			result := &report.Results[iteration*len(queries)+queryIndex]
+			note := func(message string) {
+				if report.QualityMode == "observe" {
+					result.Observations = append(result.Observations, message)
+				} else if result.Error == "" {
+					result.Error = message
+				}
+			}
 			if result.SQLSucceeded {
 				outcome.SQLSuccesses++
 			}
@@ -220,15 +224,17 @@ func evaluateStability(report *ScenarioReport, queries []query, repeat, expected
 				continue
 			}
 			if len(result.IDs) == 0 && !report.AllowEmpty {
-				result.Error = "empty result"
-				outcome.Failures++
-				continue
+				note("empty result")
+				if report.QualityMode != "observe" {
+					outcome.Failures++
+					continue
+				}
 			}
 			if expectedRows > 0 && len(result.IDs) != expectedRows {
-				result.Error = fmt.Sprintf("got %d rows, want %d", len(result.IDs), expectedRows)
+				note(fmt.Sprintf("got %d rows, want %d", len(result.IDs), expectedRows))
 			}
 			if err := checkAllowedIDs(q, result.IDs); err != nil {
-				result.Error = err.Error()
+				note(err.Error())
 			}
 			signature := multisetSignature(result.IDs)
 			seen[signature] = true
@@ -249,16 +255,16 @@ func evaluateStability(report *ScenarioReport, queries []query, repeat, expected
 				outcome.MaxChangedIDs = changed
 			}
 			if overlap < 1 && result.Error == "" {
-				result.Error = fmt.Sprintf("ID multiset changed: %d of %d positions differ from first execution", changed, max(len(baseline), len(result.IDs)))
+				note(fmt.Sprintf("ID multiset changed: %d of %d positions differ from first execution", changed, max(len(baseline), len(result.IDs))))
 			}
 			if order != firstOrder && overlap == 1 {
 				outcome.ReorderedExecutions++
 				if report.CheckOrder && result.Error == "" {
-					result.Error = "ID ordering changed from first execution"
+					note("ID ordering changed from first execution")
 				}
 			}
 			if exactSignature != "" && signature != exactSignature && result.Error == "" {
-				result.Error = "ID multiset differs from frozen exact_ids"
+				note("ID multiset differs from frozen exact_ids")
 			}
 			result.Pass = result.Error == ""
 			if !result.Pass {

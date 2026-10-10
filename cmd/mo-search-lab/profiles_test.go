@@ -101,16 +101,16 @@ func TestRunHealthDefaultsAndOverrides(t *testing.T) {
 	ordinary := loadedScenario{scenario: scenario{ID: "quality", Oracle: "ann_recall", TopK: 100}, QueriesData: queries}
 	stable := loadedScenario{scenario: scenario{ID: "stability", Oracle: "stable_multiset", TopK: 100, MinRepeats: 3}, QueriesData: queries}
 	runs, err := planScenarioRuns([]loadedScenario{ordinary, stable}, defaults)
-	if err != nil || len(runs) != 4 {
+	if err != nil || len(runs) != 2 {
 		t.Fatalf("default planning: %+v %v", runs, err)
 	}
-	for i, expected := range []int{1, 4, 8} {
+	for i, expected := range []int{1} {
 		if runs[i].Options.concurrency != expected || runs[i].Options.queryLimit != 0 || runs[i].Options.repeat != 1 {
 			t.Fatalf("missing full-query concurrency profile %d: %+v", expected, runs[i].Options)
 		}
 	}
-	if runs[3].Options.concurrency != 1 || runs[3].Options.repeat != 30 || runs[3].Options.queryLimit != 5 {
-		t.Fatalf("default stability profile: %+v", runs[3].Options)
+	if runs[1].Options.concurrency != 1 || runs[1].Options.repeat != 30 || runs[1].Options.queryLimit != 5 {
+		t.Fatalf("default stability profile: %+v", runs[1].Options)
 	}
 	for _, test := range []struct {
 		name   string
@@ -118,7 +118,7 @@ func TestRunHealthDefaultsAndOverrides(t *testing.T) {
 		levels []int
 		scalar int
 	}{
-		{"defaults", nil, []int{1, 4, 8}, 1},
+		{"defaults", nil, []int{1}, 1},
 		{"single explicit", []string{"--concurrency", "4"}, nil, 4},
 		{"single explicit one", []string{"--concurrency", "1"}, nil, 1},
 		{"custom sweep", []string{"--concurrency-levels", "1,8"}, []int{1, 8}, 1},
@@ -135,16 +135,16 @@ func TestRunHealthDefaultsAndOverrides(t *testing.T) {
 	}
 	overrides := parse("--repeat", "3", "--query-limit", "2", "--stability-repeat", "0", "--stability-query-limit", "0", "--warmup", "0", "--timeout", "10s")
 	runs, err = planScenarioRuns([]loadedScenario{ordinary, stable}, overrides)
-	if err != nil || runs[3].Options.repeat != 3 || runs[3].Options.queryLimit != 2 || runs[3].Options.warmup != 0 || runs[3].Options.timeout != 10*time.Second {
+	if err != nil || runs[1].Options.repeat != 3 || runs[1].Options.queryLimit != 2 || runs[1].Options.warmup != 0 || runs[1].Options.timeout != 10*time.Second {
 		t.Fatalf("explicit zero/inheritance/timeout overridden by defaults: %+v %v", runs, err)
 	}
-	ordinary.QueriesData = make([]query, 3334)
+	ordinary.QueriesData = make([]query, 10001)
 	if _, err := planScenarioRuns([]loadedScenario{ordinary}, defaults); err == nil {
 		t.Fatal("default complete sweep bypassed aggregate result-ID admission")
 	}
 }
 
-func TestFilterValidationDefaultsToSerialWithoutChangingOtherLoads(t *testing.T) {
+func TestEveryPackDefaultsToSerialAndExplicitProfilesRemainAvailable(t *testing.T) {
 	queries := []query{{ID: "q", AllowedIDRanges: [][2]int64{{0, 999}}}}
 	ordinary := loadedScenario{scenario: scenario{ID: "pre", Route: "sql", Oracle: "ann_recall", TopK: 100}, QueriesData: queries}
 	stable := loadedScenario{scenario: scenario{ID: "repeat", Route: "sql", Oracle: "stable_multiset", TopK: 100, MinRepeats: 30}, QueriesData: queries}
@@ -165,16 +165,16 @@ func TestFilterValidationDefaultsToSerialWithoutChangingOtherLoads(t *testing.T)
 	}
 	mixed := requested
 	mixed.mixedScenarios = []string{"pre", "text"}
-	if got := defaultPackProfile(pack, mixed); !reflect.DeepEqual(got.concurrencyLevels, []int{1, 4, 8}) {
-		t.Fatal("paired SQL load was forced to serial")
+	if got := defaultPackProfile(pack, mixed); !reflect.DeepEqual(got.concurrencyLevels, []int{1}) {
+		t.Fatal("paired SQL default is not serial")
 	}
 	unfiltered := ordinary
 	unfiltered.QueriesData = []query{{ID: "q"}}
 	text := ordinary
 	text.Oracle = "qrels"
 	for _, scenarios := range [][]loadedScenario{{unfiltered}, {ordinary, text}, {stable}, {}} {
-		if got := defaultPackProfile(scenarios, requested); !reflect.DeepEqual(got.concurrencyLevels, []int{1, 4, 8}) {
-			t.Fatal("non-filter pack changed its default concurrency")
+		if got := defaultPackProfile(scenarios, requested); !reflect.DeepEqual(got.concurrencyLevels, []int{1}) {
+			t.Fatal("pack default is not serial")
 		}
 	}
 }

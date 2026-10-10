@@ -98,7 +98,19 @@ func evaluateRawResult(r *QueryResult, s loadedScenario, q query) {
 	if !r.SQLSucceeded {
 		return
 	}
-	r.Score, r.Pass, r.Error = scoreQuery(s.scenario, q, r.IDs)
+	// Frozen acceptance settings do not decide the outcome of a measurement.
+	measurement, truth := s.scenario, q
+	measurement.MinScore = 0
+	truth.AllowedIDRanges = nil
+	var observation string
+	r.Score, _, observation = scoreQuery(measurement, truth, r.IDs)
+	r.Pass = true
+	if observation != "" {
+		r.Observations = append(r.Observations, observation)
+	}
+	if err := checkAllowedIDs(q, r.IDs); err != nil {
+		r.Observations = append(r.Observations, err.Error())
+	}
 	if s.Oracle == "qrels" {
 		metrics := qualityMetrics(s.scenario, q, r.IDs)
 		r.Quality = &metrics

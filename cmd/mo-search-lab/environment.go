@@ -362,7 +362,7 @@ func readEnvironmentRowsWithLimit(ctx context.Context, db sqlQueryer, statement 
 
 func makeSQLConfig(o options) *mysql.Config {
 	config := mysql.NewConfig()
-	config.User, config.Passwd = o.user, getenv(o.passwordEnv)
+	config.User, config.Passwd = o.user, o.password
 	config.Net, config.Addr = "tcp", sqlAddress(o)
 	config.Timeout, config.ReadTimeout, config.WriteTimeout = o.timeout, o.timeout*10, o.timeout*10
 	config.AllowNativePasswords, config.InterpolateParams = true, true
@@ -373,6 +373,7 @@ func makeSQLConfig(o options) *mysql.Config {
 func sqlAddress(o options) string { return net.JoinHostPort(o.host, fmt.Sprint(o.port)) }
 
 func inspectEnvironment(ctx context.Context, o options) (report Report, err error) {
+	notifyProgress(ctx, "读取环境配置文件")
 	inputs, err := loadEnvironmentInputs(o)
 	if err != nil {
 		return report, err
@@ -387,6 +388,7 @@ func inspectEnvironment(ctx context.Context, o options) (report Report, err erro
 		}
 	}()
 	config := makeSQLConfig(o)
+	notifyProgress(ctx, "连接 MO · "+sqlAddress(o))
 	db, err := sql.Open("mysql", config.FormatDSN())
 	if err != nil {
 		return report, err
@@ -399,7 +401,11 @@ func inspectEnvironment(ctx context.Context, o options) (report Report, err erro
 	if err != nil {
 		return report, fmt.Errorf("read MatrixOne version: %w", err)
 	}
+	notifyProgress(ctx, "采集版本、节点、缓存与检索参数")
 	collectSQLServerEnvironment(ctx, db, report.Environment, report.MatrixOneVersion, o.timeout)
+	if err = ctx.Err(); err != nil {
+		return report, err
+	}
 	if !strings.Contains(strings.ToLower(report.MatrixOneVersion), "matrixone") {
 		return report, fmt.Errorf("SQL server does not identify itself as MatrixOne")
 	}

@@ -73,7 +73,7 @@ func terminalBars(title, unit string, bars []terminalBar, width int, fixedMaximu
 			maximum = math.Max(maximum, bar.Value)
 		}
 	}
-	lines := []string{title + " / " + unit}
+	lines := []string{title}
 	precision := 3
 	if unit == "0–1" {
 		precision = 4
@@ -81,12 +81,17 @@ func terminalBars(title, unit string, bars []terminalBar, width int, fixedMaximu
 	if len(bars) == 0 {
 		return append(lines, "  未测量")
 	}
-	labelWidth := min(28, max(12, width/3))
-	barWidth := max(2, width-labelWidth-18)
-	lines = append(lines, fmt.Sprintf("  0 %s %.3f %s（共享坐标）", strings.Repeat("─", max(2, width-36)), maximum, unit))
+	labelWidth := min(30, max(12, width/3))
+	valueWidth := 5
 	for _, bar := range bars {
-		label := terminalClip(bar.Label, labelWidth)
-		label += strings.Repeat(" ", max(0, labelWidth-runewidth.StringWidth(label)))
+		if bar.Sample {
+			valueWidth = max(valueWidth, len(fmt.Sprintf("%.*f", precision, bar.Value)))
+		}
+	}
+	barWidth := max(2, width-labelWidth-valueWidth-7)
+	lines = append(lines, fmt.Sprintf("  单位 %s · 共享坐标 0–%.3f", unit, maximum), "")
+	for _, bar := range bars {
+		label := terminalPad(bar.Label, labelWidth)
 		if !bar.Sample {
 			lines = append(lines, "  "+label+" │ 暂无成功样本")
 			continue
@@ -99,7 +104,7 @@ func terminalBars(title, unit string, bars []terminalBar, width int, fixedMaximu
 		if count == 0 {
 			glyph = "·"
 		}
-		lines = append(lines, fmt.Sprintf("  %s │%-*s %.*f", label, barWidth, glyph, precision, bar.Value))
+		lines = append(lines, fmt.Sprintf("  %s │%-*s  %*.*f", label, barWidth, glyph, valueWidth, precision, bar.Value))
 	}
 	return append(lines, "")
 }
@@ -141,12 +146,12 @@ func (m *terminalModel) overviewLines() []string {
 		if s.Oracle == "stable_multiset" || s.EffectiveConcurrency != 1 {
 			continue
 		}
-		latency = append(latency, terminalBar{s.ID, terminalLatency(s, m.percentile), s.SQLSuccesses > 0})
-		qps = append(qps, terminalBar{s.ID, s.QPS, s.SQLSuccesses > 0})
+		latency = append(latency, terminalBar{scenarioDisplayName(s.ID), terminalLatency(s, m.percentile), s.SQLSuccesses > 0})
+		qps = append(qps, terminalBar{scenarioDisplayName(s.ID), s.QPS, s.SQLSuccesses > 0})
 	}
 	lines := []string{"客户端并发 1 · 固定显示 C1，不受 c 键筛选（_mixed 为两路同时运行）", ""}
-	lines = append(lines, terminalBars(fmt.Sprintf("P%d 延迟", m.percentile), "ms", latency, m.width, 0)...)
-	lines = append(lines, terminalBars("成功查询吞吐", "QPS", qps, m.width, 0)...)
+	lines = append(lines, terminalBars(fmt.Sprintf("P%d 延迟", m.percentile), "ms", latency, m.textWidth(), 0)...)
+	lines = append(lines, terminalBars("成功查询吞吐", "QPS", qps, m.textWidth(), 0)...)
 	return append(lines, "按 2 看全部并发档位，3 看召回/相关性，4 看重复稳定性。", "性能是本次负载观察；原始整体判定在顶部保留。")
 }
 
@@ -155,20 +160,28 @@ func (m *terminalModel) concurrencyLines() []string {
 	latency := make([]terminalBar, 0, len(scenarios))
 	qps := make([]terminalBar, 0, len(scenarios))
 	for _, s := range scenarios {
-		label := fmt.Sprintf("%s / C%d", s.ID, s.EffectiveConcurrency)
+		label := fmt.Sprintf("%s / C%d", scenarioDisplayName(s.ID), s.EffectiveConcurrency)
 		latency = append(latency, terminalBar{label, terminalLatency(s, m.percentile), s.SQLSuccesses > 0})
 		qps = append(qps, terminalBar{label, s.QPS, s.SQLSuccesses > 0})
 	}
 	lines := []string{"客户端并发上限；数值来自相同场景的各档位实测。", ""}
-	lines = append(lines, terminalBars(fmt.Sprintf("P%d 延迟", m.percentile), "ms", latency, m.width, 0)...)
-	lines = append(lines, terminalBars("成功查询吞吐", "QPS", qps, m.width, 0)...)
+	lines = append(lines, terminalBars(fmt.Sprintf("P%d 延迟", m.percentile), "ms", latency, m.textWidth(), 0)...)
+	lines = append(lines, terminalBars("成功查询吞吐", "QPS", qps, m.textWidth(), 0)...)
 	lines = append(lines, "场景 / 并发 / 成功SQL / SQL错误 / 断言失败 / 秒 / P90 / P95 / P99 ms")
+	observed := m.doc.View.MeasurementMode == "observe"
+	if observed {
+		lines[len(lines)-1] = "场景 / 并发 / 成功SQL / SQL错误 / 秒 / P90 / P95 / P99 ms"
+	}
 	for _, s := range m.ordinaryScenarios() {
 		latencies := "暂无成功样本"
 		if s.SQLSuccesses > 0 {
 			latencies = fmt.Sprintf("%.3f / %.3f / %.3f", s.P90MS, s.P95MS, s.P99MS)
 		}
-		lines = append(lines, fmt.Sprintf("%s / C%d / %d / %d / %d / %.3f / %s", s.ID, s.EffectiveConcurrency, s.SQLSuccesses, s.SQLFailures, s.AssertionFailures, s.MeasuredSeconds, latencies))
+		line := fmt.Sprintf("%s / C%d / %d / %d / %d / %.3f / %s", scenarioDisplayName(s.ID), s.EffectiveConcurrency, s.SQLSuccesses, s.SQLFailures, s.AssertionFailures, s.MeasuredSeconds, latencies)
+		if observed {
+			line = fmt.Sprintf("%s / C%d / %d / %d / %.3f / %s", scenarioDisplayName(s.ID), s.EffectiveConcurrency, s.SQLSuccesses, s.SQLFailures, s.MeasuredSeconds, latencies)
+		}
+		lines = append(lines, line)
 	}
 	if len(m.doc.View.Profile.MixedScenarios) > 0 {
 		lines = append(lines, "", "_mixed：C 个配对作业，最多同时运行 2C 条 SQL。", "两路分别记录延迟；QPS 共用批次时长，每对等待两路完成。", "配对节奏会改变负载；向量尾延迟降低不代表单路容量提高。")
@@ -186,7 +199,7 @@ func (m *terminalModel) qualityLines() []string {
 		if s.QualityMode == "observe" {
 			mode = "观察，不设验收线"
 		}
-		lines = append(lines, fmt.Sprintf("%s / C%d / Top-%d / %s", s.ID, s.EffectiveConcurrency, s.TopK, mode))
+		lines = append(lines, fmt.Sprintf("%s / C%d / Top-%d / %s", scenarioDisplayName(s.ID), s.EffectiveConcurrency, s.TopK, mode))
 		var bars []terminalBar
 		if s.Oracle == "ann_recall" {
 			bars = append(bars, terminalBar{fmt.Sprintf("Recall@%d", s.TopK), s.MeanScore, s.SQLSuccesses > 0})
@@ -202,9 +215,13 @@ func (m *terminalModel) qualityLines() []string {
 			}
 			lines = append(lines, fmt.Sprintf("收益 %s · relevant_grade >= %d", s.NDCGGain, s.RelevantGrade))
 		}
-		lines = append(lines, terminalBars("检索质量", "0–1", bars, m.width, 1)...)
+		lines = append(lines, terminalBars("检索质量", "0–1", bars, m.textWidth(), 1)...)
 		if s.SQLSuccesses > 0 {
-			lines = append(lines, fmt.Sprintf("成功 %d / 执行 %d；平均返回 %.2f 条；SQL错误 %d；断言失败 %d", s.SQLSuccesses, s.Executions, m.doc.Returned[i], s.SQLFailures, s.AssertionFailures), "")
+			line := fmt.Sprintf("成功 %d / 执行 %d；平均返回 %.2f 条；SQL错误 %d", s.SQLSuccesses, s.Executions, m.doc.Returned[i], s.SQLFailures)
+			if s.QualityMode != "observe" {
+				line += fmt.Sprintf("；断言失败 %d", s.AssertionFailures)
+			}
+			lines = append(lines, line, "")
 		} else {
 			lines = append(lines, "平均返回：暂无成功样本", "")
 		}
@@ -217,8 +234,13 @@ func (m *terminalModel) qualityLines() []string {
 
 func (m *terminalModel) stabilityLines() []string {
 	lines := []string{"重复相同输入：集合检查保留重复 ID 数量；顺序检查由场景指定。", "● 通过  ! 断言失败  × SQL错误  · 未执行；每格一组连续重复。", "稳定性按独立并发 1 执行，不随 c 键筛选。", ""}
+	if m.doc.View.MeasurementMode == "observe" {
+		lines[0] = "记录相同输入的集合与顺序变化，不设稳定性验收线。"
+		lines[1] = "● 与基准一致  ! 变化/差异  × SQL错误  · 未执行"
+	}
 	for _, s := range m.doc.View.StabilityScenarios {
-		lines = append(lines, fmt.Sprintf("%s · Top-%d · %d 查询 × %d 次 · 顺序检查 %t", s.ID, s.TopK, s.SelectedQueries, s.Repetitions, s.CheckOrder))
+		lines = append(lines, fmt.Sprintf("%s · Top-%d · %d 查询 × %d 次 · 顺序检查 %t", scenarioDisplayName(s.ID), s.TopK, s.SelectedQueries, s.Repetitions, s.CheckOrder))
+		lines = append(lines, stabilityChangeSummary(s))
 		matrix := buildStabilityMatrix(s)
 		if !matrix.HasData {
 			lines = append(lines, "未执行重复检查", s.Error, "")
@@ -245,7 +267,13 @@ func (m *terminalModel) stabilityLines() []string {
 			lines = append(lines, fmt.Sprintf("矩阵展示前 30 查询；其余 %d 查询的数值在下方。", matrix.HiddenQueries))
 		}
 		for _, result := range s.Stability {
-			lines = append(lines, fmt.Sprintf("%s：集合 %d 种，顺序 %d 种，最低重合 %.3f，最多变化ID %d，失败 %d/%d", result.QueryID, result.DistinctResults, result.DistinctOrders, result.WorstOverlap, result.MaxChangedIDs, result.Failures, result.Executions))
+			line := fmt.Sprintf("%s：集合 %d 种，顺序 %d 种，最低重合 %.3f，最多变化ID %d", result.QueryID, result.DistinctResults, result.DistinctOrders, result.WorstOverlap, result.MaxChangedIDs)
+			if s.QualityMode == "observe" {
+				line += fmt.Sprintf("，顺序变化 %d 次，SQL错误 %d", result.ReorderedExecutions, result.Failures)
+			} else {
+				line += fmt.Sprintf("，顺序变化 %d 次，旧版失败 %d/%d", result.ReorderedExecutions, result.Failures, result.Executions)
+			}
+			lines = append(lines, line)
 		}
 		lines = append(lines, "")
 	}
@@ -270,7 +298,7 @@ func (m *terminalModel) sqlLines() []string {
 	if s == nil {
 		return []string{"没有场景。"}
 	}
-	lines := []string{fmt.Sprintf("场景 %s / C%d / %s / %s", s.ID, s.EffectiveConcurrency, s.Route, s.Oracle), "n / b 切换场景；此页不受 c 键筛选。", "", "测量 SQL", s.SQL}
+	lines := []string{fmt.Sprintf("场景 %s / C%d / %s / %s", scenarioDisplayName(s.ID), s.EffectiveConcurrency, s.Route, s.Oracle), "n / b 切换场景；此页不受 c 键筛选。", "", "原始场景标识: " + s.ID, "", "测量 SQL", s.SQL}
 	if s.VectorSQL != "" {
 		lines = append(lines, "向量 SQL", s.VectorSQL, "全文 SQL", s.FulltextSQL)
 	}
@@ -298,10 +326,10 @@ func (m *terminalModel) sqlLines() []string {
 
 func (m *terminalModel) environmentLines() []string {
 	r, v := m.doc.View.Report, m.doc.View.EnvironmentView
-	lines := []string{"版本与部署"}
+	lines := terminalSection("版本与部署")
 	appendRows := func(rows []environmentRow) {
 		for _, row := range rows {
-			lines = append(lines, row.Label+": "+row.Value+" ["+row.Source+"]")
+			lines = append(lines, terminalKV(row.Label, row.Value+" ["+row.Source+"]", m.textWidth())...)
 		}
 	}
 	appendRows(v.Summary)
@@ -311,31 +339,38 @@ func (m *terminalModel) environmentLines() []string {
 	if v.Diagnostics.NodeNotice != "" {
 		lines = append(lines, v.Diagnostics.NodeNotice)
 	}
-	lines = append(lines, "", "节点与缓存", v.SnapshotNote)
+	lines = append(lines, terminalSection("节点与缓存")...)
+	lines = append(lines, v.SnapshotNote, "")
 	if len(v.Caches) == 0 {
 		lines = append(lines, "未取得存储与缓存配置。")
 	} else {
-		lines = append(lines, "节点 | 存储服务 | 后端 | 每节点内存缓存 | 每节点磁盘缓存")
 		for _, cache := range v.Caches {
-			lines = append(lines, strings.Join([]string{cache.Node, cache.Service, cache.Backend, cache.Memory, cache.Disk}, " | ")+" ["+cache.Source+"]")
+			lines = append(lines, "  "+cache.Node+" / "+cache.Service)
+			for _, row := range []environmentRow{{Label: "后端", Value: cache.Backend}, {Label: "内存缓存 / 每节点", Value: cache.Memory}, {Label: "磁盘缓存 / 每节点", Value: cache.Disk}} {
+				lines = append(lines, terminalKV(row.Label, row.Value, m.textWidth())...)
+			}
+			lines = append(lines, "  来源  "+cache.Source, "")
 		}
 	}
 	if len(v.MetadataCaches) > 0 {
-		lines = append(lines, "", "Metadata 缓存 · 每节点容量")
+		lines = append(lines, terminalSection("Metadata 缓存 · 每节点容量")...)
 		for _, cache := range v.MetadataCaches {
-			lines = append(lines, cache.Label+": "+cache.Value+" ["+cache.Source+"] · "+cache.Basis)
+			lines = append(lines, terminalKV(cache.Label, cache.Value+" ["+cache.Source+"]", m.textWidth())...)
+			lines = append(lines, "  "+cache.Basis)
 		}
 		lines = append(lines, "环境默认容量按服务端系统总内存推算；运行时调整未确认。")
 	}
-	lines = append(lines, "", "检索参数 · SQL 初始会话值，场景 SQL 可以覆盖")
+	lines = append(lines, terminalSection("检索参数 · SQL 初始会话值，场景 SQL 可以覆盖")...)
 	for _, group := range v.Retrieval {
-		lines = append(lines, group.Label)
+		lines = append(lines, "  "+group.Label)
 		appendRows(group.Rows)
+		lines = append(lines, "")
 	}
 	if len(v.Retrieval) == 0 {
 		lines = append(lines, "未取得 SQL 检索参数。")
 	}
-	lines = append(lines, "", "资源监控 · "+v.MonitorStatus, v.MonitorNote)
+	lines = append(lines, terminalSection("资源监控 · "+v.MonitorStatus)...)
+	lines = append(lines, v.MonitorNote)
 	appendRows(v.Monitoring)
 	for _, plot := range m.doc.View.ResourcePlots {
 		lines = append(lines, "", plot.Name+" · "+plot.Unit+" · "+plot.Status)
@@ -373,6 +408,7 @@ func (m *terminalModel) environmentLines() []string {
 		if r.RunKind != "environment_inspection" {
 			profile, _ := json.MarshalIndent(r.Profile, "", "  ")
 			lines = append(lines, "", "运行身份与输入记录", "工具版本: "+r.ToolVersion, "二进制 SHA256: "+r.BinarySHA256)
+			lines = append(lines, "数据集: "+r.DisplayName(), "原始标识: "+r.Dataset)
 			lines = append(lines, "数据清单 SHA256: "+r.ManifestSHA256, "测试库: "+r.Database+" / "+r.Cleanup, "测量参数", string(profile))
 			for _, stage := range r.Stages {
 				lines = append(lines, fmt.Sprintf("%s: %.3f s / %d 行 / %s", stage.Name, stage.Seconds, stage.Rows, stage.Error))
@@ -393,7 +429,7 @@ func (m *terminalModel) environmentLines() []string {
 const terminalMetricHelp = `指标说明
 
 P90 / P95 / P99：按成功 SQL 的延迟升序取最近秩分位数。P95 表示
-95% 的成功测量延迟不超过此值。包含成功但质量断言未通过的查询。
+95% 的成功测量延迟不超过此值。统计所有成功 SQL 的实测延迟。
 SQL 错误没有可用延迟样本，排除在延迟、吞吐和质量均值之外。
 
 QPS：成功查询执行数 / 批次测量秒数。warmup 不计入。
@@ -422,6 +458,8 @@ MRR 关注第一个答案；nDCG 同时关注多个答案的等级和排序。
 机器配额不等于实测利用率；缺失监控明确显示为 unavailable。
 图表是本次有限负载下的观察，未设置统一性能或质量验收线。
 
-操作：d 选数据集/运行；←/→ 切换数据集；r 切换历史运行；
-Tab、1..6 切换页；p 切换 P90/P95/P99；c 切换已测并发；
-n/b 切换 SQL 场景；e 展开环境详情；↑/↓、j/k、PgUp/PgDn 滚动；? 说明；q 退出。`
+操作：d 选择历史运行，↑↓ 选择、Enter 打开、Esc 返回；
+←/→ 切换本次运行内的报告；Tab/Shift-Tab 切换报告页；
+1..6 直达，? 打开指标说明；
+概览/并发页按 p 切换分位数；并发/质量页按 c 筛选已测并发；
+SQL 页按 n/b 切场景；环境页按 e 展开详情；↑↓ 滚动；q 退出。`

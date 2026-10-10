@@ -18,9 +18,11 @@ import (
 
 const terminalReportLimit = 64 << 20
 
+var errNoTerminalReports = fmt.Errorf("no benchmark reports found; use --reports DIR or --report-dir DIR")
+
 type terminalRun struct {
-	Path, Dataset, Status, ToolVersion string
-	StartedAt                          time.Time
+	Path, Dataset, DatasetName, Status, ToolVersion string
+	StartedAt, FinishedAt                           time.Time
 }
 
 type terminalDataset struct {
@@ -57,10 +59,14 @@ func readTerminalHeader(path string) (terminalRun, error) {
 		switch key {
 		case "dataset":
 			target = &run.Dataset
+		case "dataset_name":
+			target = &run.DatasetName
 		case "status":
 			target = &run.Status
 		case "started_at":
 			target = &run.StartedAt
+		case "finished_at":
+			target = &run.FinishedAt
 		case "tool_version":
 			target = &run.ToolVersion
 		default:
@@ -122,11 +128,46 @@ func discoverTerminalReports(root, single string) ([]terminalDataset, []string, 
 	var runs []terminalRun
 	var warnings []string
 	if single != "" {
-		run, err := readTerminalHeader(filepath.Join(single, "report.json"))
-		if err != nil {
-			return nil, nil, err
+		paths := []string{filepath.Join(single, "report.json")}
+		batchDir := single
+		batch, batchErr := readTerminalBatchRecord(batchDir)
+		if batchErr != nil {
+			batchDir = filepath.Dir(single)
+			batch, batchErr = readTerminalBatchRecord(batchDir)
+			if batchErr == nil {
+				found := false
+				for _, item := range batch.Items {
+					found = found || item.ReportDir == filepath.Base(single)
+				}
+				if !found {
+					batchErr = fmt.Errorf("所选报告不属于父目录中的运行汇总")
+				}
+			}
 		}
-		runs = append(runs, run)
+		if batchErr == nil {
+			paths = nil
+			for _, item := range batch.Items {
+				if item.ReportDir != "" {
+					paths = append(paths, filepath.Join(batchDir, item.ReportDir, "report.json"))
+				}
+			}
+		}
+		for _, path := range paths {
+			dir, err := os.Lstat(filepath.Dir(path))
+			if err != nil || !dir.IsDir() {
+				warnings = append(warnings, "报告目录不存在或不是普通目录: "+filepath.Dir(path))
+				continue
+			}
+			run, err := readTerminalHeader(path)
+			if err != nil {
+				if batchErr != nil || sameTerminalPackPath(path, filepath.Join(single, "report.json")) {
+					return nil, nil, err
+				}
+				warnings = append(warnings, err.Error())
+				continue
+			}
+			runs = append(runs, run)
+		}
 	} else {
 		visited := 0
 		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
@@ -163,7 +204,7 @@ func discoverTerminalReports(root, single string) ([]terminalDataset, []string, 
 		}
 	}
 	if len(runs) == 0 {
-		return nil, warnings, fmt.Errorf("no benchmark reports found; use --reports DIR or --report-dir DIR")
+		return nil, warnings, errNoTerminalReports
 	}
 	sort.Slice(runs, func(i, j int) bool {
 		if runs[i].StartedAt.Equal(runs[j].StartedAt) {

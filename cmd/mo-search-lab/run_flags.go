@@ -26,7 +26,7 @@ func registerConnectionFlags(fs *flag.FlagSet, o *options) {
 	fs.StringVar(&o.host, "host", "127.0.0.1", "MatrixOne SQL host")
 	fs.IntVar(&o.port, "port", 6001, "MatrixOne SQL port")
 	fs.StringVar(&o.user, "user", "root", "MatrixOne SQL user")
-	fs.StringVar(&o.passwordEnv, "password-env", "MO_BENCH_PASSWORD", "environment variable holding the SQL password")
+	fs.StringVar(&o.password, "password", "", "MatrixOne SQL password; also pre-fills the masked UI field")
 	fs.DurationVar(&o.timeout, "timeout", 3*time.Minute, "query/plan timeout; data preparation allows 10x this budget")
 }
 
@@ -43,8 +43,8 @@ func registerRunFlags(fs *flag.FlagSet, o *options) (levels, mixed, endpoints *s
 	fs.StringVar(&o.reportDir, "report-dir", "report-"+time.Now().UTC().Format("20060102-150405.000000000"), "output directory")
 	fs.IntVar(&o.queryLimit, "query-limit", 0, "maximum distinct queries per scenario (0 means all)")
 	fs.IntVar(&o.repeat, "repeat", 1, "measured repetitions per query")
-	fs.IntVar(&o.concurrency, "concurrency", 1, "single client concurrency level; overrides the default sweep when --concurrency-levels is omitted")
-	levels = fs.String("concurrency-levels", "1,4,8", "client concurrency levels; filter-only packs default to serial; explicit levels override --concurrency")
+	fs.IntVar(&o.concurrency, "concurrency", 1, "single client concurrency level (default 1); explicit levels override this value")
+	levels = fs.String("concurrency-levels", "1", "client concurrency levels; opt into multiple levels with 1,4,8")
 	mixed = fs.String("mixed-scenarios", "", "two ordinary SQL scenario IDs to also execute as concurrent paired queries")
 	fs.IntVar(&o.stabilityRepeat, "stability-repeat", 30, "repetitions for stability scenarios (0 inherits --repeat)")
 	fs.IntVar(&o.stabilityQueryLimit, "stability-query-limit", 5, "distinct queries for stability scenarios (0 inherits --query-limit)")

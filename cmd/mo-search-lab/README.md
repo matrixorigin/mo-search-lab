@@ -7,10 +7,10 @@ This command is a standalone client for on-site retrieval checks. It connects to
 Build from this standalone repository for the customer's OS/architecture. Its own `go.mod` pins a pure-Go MySQL protocol driver and terminal libraries; this package does not import MatrixOne kernel packages or CGo vector dependencies:
 
 ```sh
-CGO_ENABLED=0 GOWORK=off go build -mod=readonly -trimpath -ldflags='-s -w -X main.version=v0.9.9' -o mo-search-lab ./cmd/mo-search-lab
+CGO_ENABLED=0 GOWORK=off go build -mod=readonly -trimpath -ldflags='-s -w -X main.version=v0.10.1' -o mo-search-lab ./cmd/mo-search-lab
 ./mo-search-lab validate --pack ./cmd/mo-search-lab/testdata/smoke
-export MO_BENCH_PASSWORD='...'
 ./mo-search-lab run --host 127.0.0.1 --port 6001 --user root \
+  --password 'YOUR_PASSWORD' \
   --pack ./cmd/mo-search-lab/testdata/smoke \
   --query-limit 2 --repeat 3 --concurrency 1
 ```
@@ -21,7 +21,7 @@ The default output directory has a timestamped name. The command prints its path
 
 The HTML has **性能测试 / 运行环境** tabs. Performance charts open first; the environment tab shows the snapshot from that same run, with diagnostic details and raw JSON links. Tabs work offline, support arrow keys and Home/End, and both sections remain readable when printing or with JavaScript disabled. Historical reports without a captured snapshot say so explicitly. Standalone `inspect` reports remain environment pages.
 
-### Default health profile (v0.9.9)
+### Default health profile (v0.10.1)
 
 `run --pack DIR` now runs all scenarios in that pack with this profile:
 
@@ -61,7 +61,7 @@ This command atomically replaces only `report.html`; `report.json` and its origi
 
 The bundled eight-row pack is **only a runner smoke fixture**. It now includes a repeated-result stability scenario and requires `--repeat 3` or higher. It cannot support a customer performance claim. The first customer-scale pack should use approximately 1–2.3 million public T2Ranking passages, frozen query/qrels files, and offline BGE-large-zh-v1.5 embeddings with pinned model revision and generation settings. Separate packs can cover LCQMC similar-question matching and GIST1M pure ANN behavior. The on-site host needs only this executable, the selected pack, network access to MatrixOne, and SQL permissions to create/drop a database and create tables/indexes. An optional Grafana integration is future work; unavailable resource metrics are explicit in the report.
 
-## Interactive terminal report viewer
+## Interactive terminal runner and report viewer
 
 The same standalone binary includes a terminal dashboard. Open saved reports
 directly over SSH; Python, a browser, an HTTP service and an active SQL connection
@@ -73,7 +73,57 @@ are not needed for viewing:
 ./mo-search-lab ui --reports /path/to/reports --dataset gist1m_filtered_v7
 ```
 
-The catalogue groups runs by the recorded dataset ID, with the newest run first.
+Start a task directly from the terminal dashboard (v0.10.0):
+
+```sh
+./mo-search-lab ui --launch --reports reports --packs packs \
+  --host 127.0.0.1 --port 6001 --user root --password 'YOUR_PASSWORD'
+```
+
+An empty or absent reports directory opens the new-task form automatically.
+Press `l` from an existing report to start another task. Choose a read-only
+environment inspection or a benchmark, edit connection fields with Enter,
+and use Enter on the test-project field or Ctrl-P to select packs. Passwords are masked and held in process
+memory. `run`, `inspect` and `ui` accept SQL credentials through `--password`;
+the UI pre-fills its masked field and allows editing. Blank means an empty
+password; SQL credentials are not read from environment variables or saved
+in reports. The form
+also accepts a single explicit pack path with `p` on the test-project field. Pack previews read only small manifests;
+full hash validation runs after Start and can be cancelled.
+
+The first form selects all installed routine projects by default. In the
+checklist, arrows move focus, Space toggles an item, `s` selects or clears the
+visible group, Enter confirms and Esc restores the previous selection. `a`
+reveals historical and experimental packs, which initially remain unchecked.
+An explicit `--pack` preselects only that pack. Subsequent tasks retain the
+last launched selection. Additional 4 and 8 concurrency levels are independent
+unchecked options underneath each eligible dataset. Selecting them retains the
+concurrency-1 baseline; filter checks and stability remain serial. `s` selects
+projects only, and Esc restores both project and concurrency selections.
+
+Defaults match `run`: all queries, concurrency 1 for every project, and independent stability checks. More settings include query
+budgets, explicit concurrency, paired SQL scenario IDs, timeouts and optional
+environment/TOML/monitoring inputs. Selecting the distributed GIST/T2 SQL
+workload uses `vector,fulltext` for its paired profiles. Each selected pack
+retains its own defaults; the paired setting does not affect the other projects.
+Single-pack selection permits explicit paired scenario IDs.
+Connection and environment flags also seed the form; `--pack` preselects a path.
+
+Selected projects run sequentially; the running view shows the current project,
+stages and elapsed time. Esc or Ctrl-C requests cancellation;
+the dashboard waits for the runner's database cleanup and report writing.
+Pending projects then remain unstarted and generated reports are retained.
+Multiple projects finish on a result list: Enter opens the selected report and
+`t` returns to the list. Single-project completion opens that exact result,
+including failed runs with saved records. Each project creates a separate
+report directory. A multi-project run also saves `batch.json` with execution
+outcomes under a fresh timestamped directory of the chosen reports root;
+connection options and credentials are not serialized in this summary.
+Viewing historical records still performs no SQL. `--plain` stays read-only;
+`--launch` requires a real terminal. No new runtime dependency is required.
+
+The history picker groups reports by invocation using `batch.json`, with the
+newest invocation first. A standalone report is shown as one invocation.
 Opening a report does not rerun SQL or change any original file. The dashboard
 has six pages: an initial concurrency-1 bar chart, concurrency latency/QPS,
 recall and relevance quality, repeat stability, SQL/plans, and environment.
@@ -82,13 +132,17 @@ profile selection; missing samples are shown as unavailable.
 
 | Keys | Action |
 | --- | --- |
-| `d`, arrows, Enter, Esc | Choose dataset and historical run; cancel selection. |
-| Left / Right | Switch dataset, opening its newest run. |
-| `r` | Next historical run of the selected dataset. |
-| Tab / Shift-Tab, `1`..`6` | Change report page. |
-| `p` | Cycle P90 / P95 / P99. |
-| `c` | Cycle all / measured client concurrency levels. |
-| `n` / `b` | Next / previous SQL scenario and profile. |
+| `l` | Open a new-task form. |
+| `t` | Return to the current multi-project result list. |
+| `x`, Delete | Only in history selection: preview deletion of the focused invocation; `y` confirms, Enter / `n` / Esc cancels. |
+| `d`, Up / Down, Enter, Esc | Choose a whole historical invocation; cancel selection. |
+| Left / Right | Previous / next dataset report in the selected invocation; preserve the current page. |
+| Tab / Shift-Tab | Next / previous page of the current report; preserve the report and filters. |
+| `r` | Compatibility alias for `d`; opens historical-run selection without changing the current run. |
+| `1`..`6` | Open a report page directly; metric help is separate and opens with `?`. |
+| `p` | Cycle P90 / P95 / P99 on overview or concurrency pages. |
+| `c` | Cycle all / measured concurrency levels on concurrency or quality pages. |
+| `n` / `b` | Next / previous scenario and profile on the SQL page. |
 | Up / Down, `j` / `k`, PgUp / PgDn, Home / End | Scroll. |
 | `?`, `q`, Ctrl-C | Metric help, quit. |
 
@@ -98,6 +152,15 @@ explicitly selected scenario. Optional `environment.json` and
 `stability-tie-analysis.json` in the same run directory are supplementary saved
 evidence. The raw overall status is never overridden by supplementary analysis.
 A failed load after switching is visible and clears the old report.
+
+Run deletion permanently removes all report folders, JSON, HTML and saved
+sidecars belonging to the selected invocation, then its batch summary and root
+directory. It refreshes history; deleting the last run shows the empty state.
+Every report and directory is checked before any removal and checked again at
+confirmation. Dataset files, unrelated entries and changed identities reject the
+original deletion scope. Files are removed through directory handles, and file
+symlinks are unlinked without following their targets. Deleted reports are marked
+unavailable in the current result list.
 
 For a script or copied text, select a page and print it without terminal controls:
 
@@ -420,6 +483,19 @@ for filters). Record terminal process status as `run-status.json` with
 publishing. Smaller field profiles still produce their own standalone CLI
 report. Large CSV packs are delivered separately from the binary archive.
 
+## Measurement outcomes
+
+New runs observe quality and stability without acceptance assertions. Recall,
+relevance, result-set overlap, order changes and differing-result counts remain
+in raw records and charts. Frozen pack thresholds and required-plan assertions
+do not fail a run; data preparation, connection, SQL and cleanup errors do.
+Reports record `measurement_mode: observe` and scene `quality_mode: observe`;
+`pass` and failure counts describe execution, while `observations` records result
+differences. Existing raw reports retain their original outcome semantics.
+
+The default concurrency is 1 for every pack. Scripted runs opt into a sweep with
+`--concurrency-levels 1,4,8`. UI sweep options are per dataset and default off.
+
 ## Saved Elasticsearch reference measurements
 
 `tools/benchmark_elasticsearch.py` is a standard-library experimental runner
@@ -456,3 +532,9 @@ python3 tools/render_es_reference.py --reports-root reports --es-report es-longe
 
 See
 [the experiment design](../../docs/design/field_retrieval_benchmark_es_v1.md).
+
+Report titles and dataset/history pickers use readable dataset names. Charts describe the test purpose (for example, `先过滤 · 可见 10% · 重复稳定性`); raw IDs remain in SQL and measurement details, and `--dataset` continues to accept the recorded ID. Optional `pack-info.json` names are copied to `dataset_name` in new reports. Stability summaries separate changed ID multisets, ordering changes with identical multisets, and SQL errors; historical statuses remain unchanged.
+
+### Historical invocations
+
+`d` selects a whole historical run, grouped using `batch.json`. Left/right cycle through that run’s dataset reports; Tab/Shift-Tab and 1–6 switch pages within the current report. Only in history selection, `x` previews deletion of the entire selected run, including its report folders and batch summary; `y` confirms, while Enter/n/Esc cancel. All member reports are checked before any deletion. Other invocations and data packs stay separate. A standalone report is one invocation. `--report-dir` accepts either a run directory or one of its reports and opens the group.

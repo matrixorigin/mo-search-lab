@@ -5,38 +5,56 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
+	"github.com/mattn/go-runewidth"
 )
 
 type terminalChoice struct{ Dataset, Run int }
 
 type terminalModel struct {
-	datasets              []terminalDataset
-	warnings              []string
-	dataset, run          int
-	doc                   *terminalDocument
-	loadError             error
-	section, previous     int
-	percentile, level     int
-	scenario, scroll      int
-	width, height         int
-	chooser               bool
-	environmentDetails    bool
-	choice, chooserScroll int
+	datasets               []terminalDataset
+	histories              []terminalHistory
+	warnings               []string
+	dataset, run           int
+	doc                    *terminalDocument
+	loadError              error
+	section, previous      int
+	percentile, level      int
+	scenario, scroll       int
+	width, height          int
+	color                  bool
+	chooser                bool
+	environmentDetails     bool
+	choice, chooserScroll  int
+	reportsRoot, packsRoot string
+	launchSeed             options
+	launchInspect          bool
+	launchPacks            []string
+	launchConcurrency      map[string][]int
+	launcher               *terminalLauncher
+	task                   *terminalTask
+	taskNotice             string
+	batch                  *terminalBatchSummary
+	batchView              bool
+	deletion               *terminalReportDeletion
+	executeTask            func(context.Context, terminalRequest) terminalTaskResult
 }
 
 func runTerminalUI(args []string) error {
 	fs := flag.NewFlagSet("ui", flag.ContinueOnError)
 	root := fs.String("reports", "", "directory tree containing saved benchmark reports (default .)")
-	single := fs.String("report-dir", "", "open a single directory containing report.json")
+	single := fs.String("report-dir", "", "open a report or a whole run directory; include reports from its batch.json")
 	dataset := fs.String("dataset", "", "initial dataset ID, exactly as recorded in report.json")
 	section := fs.String("section", "overview", "initial page: overview, concurrency, quality, stability, sql, environment, help")
 	plain := fs.Bool("plain", false, "print the selected page without interactive terminal controls")
@@ -45,6 +63,12 @@ func runTerminalUI(args []string) error {
 	level := fs.Int("concurrency", 0, "show one measured concurrency level (0 shows all)")
 	scenario := fs.String("scenario-id", "", "initial scenario for the SQL page")
 	width := fs.Int("width", 100, "plain-output width in columns (40..240)")
+	packs := fs.String("packs", "packs", "directory tree containing dataset packs for new tasks")
+	pack := fs.String("pack", "", "preselect only this pack; default selects all installed routine projects")
+	launch := fs.Bool("launch", false, "open the new-task form on startup")
+	seed := defaultTerminalOptions()
+	registerConnectionFlags(fs, &seed)
+	registerEnvironmentFlags(fs, &seed)
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return nil
@@ -66,14 +90,39 @@ func runTerminalUI(args []string) error {
 	if *root == "" {
 		*root = "."
 	}
+	interactive := !*plain && term.IsTerminal(os.Stdin.Fd()) && term.IsTerminal(os.Stdout.Fd()) && os.Getenv("TERM") != "dumb"
+	if *launch && !interactive {
+		return fmt.Errorf("--launch requires an interactive terminal; use run or inspect for scripts")
+	}
 	datasets, warnings, err := discoverTerminalReports(*root, *single)
 	if err != nil {
-		if len(warnings) > 0 {
-			return fmt.Errorf("%w; skipped reports: %s", err, strings.Join(warnings, "; "))
+		if interactive && *single == "" && (errors.Is(err, errNoTerminalReports) || os.IsNotExist(err)) {
+			datasets = nil
+		} else {
+			if len(warnings) > 0 {
+				return fmt.Errorf("%w; skipped reports: %s", err, strings.Join(warnings, "; "))
+			}
+			return err
 		}
-		return err
 	}
 	m := &terminalModel{datasets: datasets, warnings: warnings, width: *width, height: 32, section: page, percentile: *percentile, environmentDetails: *environmentDetails}
+	m.color = interactive && os.Getenv("NO_COLOR") == ""
+	m.reportsRoot, m.packsRoot, m.launchSeed = *root, *packs, seed
+	if m.reportsRoot == "." {
+		m.reportsRoot = "reports"
+	}
+	m.launchSeed.pack = *pack
+	defer m.closeTask()
+	if len(datasets) > 0 && *dataset == "" {
+		choice := m.historyGroups()[0].Entries[0]
+		for _, candidate := range m.choices() {
+			if *single != "" && sameTerminalPackPath(datasets[candidate.Dataset].Runs[candidate.Run].Path, filepath.Join(*single, "report.json")) {
+				choice = candidate
+				break
+			}
+		}
+		m.dataset, m.run = choice.Dataset, choice.Run
+	}
 	if *dataset != "" {
 		found := false
 		for i, ds := range datasets {
@@ -86,11 +135,13 @@ func runTerminalUI(args []string) error {
 			return fmt.Errorf("dataset %q not found; IDs: %s", *dataset, strings.Join(m.datasetIDs(), ", "))
 		}
 	}
-	m.load()
+	if len(m.datasets) > 0 {
+		m.load()
+	}
 	if m.loadError != nil {
 		return m.loadError
 	}
-	if m.doc.View.RunKind == "environment_inspection" {
+	if m.doc != nil && m.doc.View.RunKind == "environment_inspection" {
 		var explicitSection bool
 		fs.Visit(func(f *flag.Flag) {
 			if f.Name == "section" {
@@ -112,6 +163,9 @@ func runTerminalUI(args []string) error {
 		m.level = *level
 	}
 	if *scenario != "" {
+		if m.doc == nil {
+			return fmt.Errorf("no saved report for --scenario-id")
+		}
 		found := false
 		for i, s := range m.doc.View.Scenarios {
 			if s.ID == *scenario && (*level == 0 || s.EffectiveConcurrency == *level) {
@@ -123,8 +177,11 @@ func runTerminalUI(args []string) error {
 			return fmt.Errorf("scenario %q not found at selected concurrency", *scenario)
 		}
 	}
-	if *plain || !term.IsTerminal(os.Stdin.Fd()) || !term.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb" {
+	if !interactive {
 		return m.writePlain(os.Stdout)
+	}
+	if *launch || len(m.datasets) == 0 {
+		m.openLauncher()
 	}
 	_, err = tea.NewProgram(m, tea.WithInput(os.Stdin), tea.WithOutput(os.Stdout), tea.WithAltScreen()).Run()
 	return err
@@ -139,8 +196,12 @@ func (m *terminalModel) datasetIDs() []string {
 }
 
 func (m *terminalModel) load() {
+	m.histories = nil
 	m.doc, m.loadError = nil, nil
 	m.scroll, m.scenario, m.level = 0, 0, 0
+	if len(m.datasets) == 0 {
+		return
+	}
 	m.doc, m.loadError = loadTerminalDocument(m.datasets[m.dataset].Runs[m.run])
 }
 
@@ -171,20 +232,86 @@ func (m *terminalModel) choices() []terminalChoice {
 	return choices
 }
 
+func (m *terminalModel) openReportChooser() {
+	m.histories = nil
+	m.chooser, m.chooserScroll = true, 0
+	_, m.choice, _ = m.currentHistory()
+}
+
+// Page navigation stays within the current report and keeps its view filters.
+// Metric help is opened explicitly with ?, rather than as a seventh report page.
+func (m *terminalModel) moveReportPage(delta int) {
+	pages := len(terminalSections) - 1
+	page := m.section
+	if page == pages {
+		page = m.previous
+	}
+	m.section, m.scroll = (page+delta+pages)%pages, 0
+}
+
 func (m *terminalModel) Init() tea.Cmd { return nil }
 
 func (m *terminalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case terminalTaskEvent:
+		if m.task == nil {
+			return m, nil
+		}
+		if msg.Result != nil {
+			m.finishTask(*msg.Result)
+			return m, nil
+		}
+		m.task.stage = msg.Message
+		if msg.Item > 0 {
+			m.task.item = msg.Item
+		}
+		m.task.logs = append(m.task.logs, msg.Message)
+		if len(m.task.logs) > 12 {
+			m.task.logs = m.task.logs[len(m.task.logs)-12:]
+		}
+		return m, waitTerminalTask(m.task)
+	case terminalTaskTick:
+		if m.task != nil && m.task == msg.Task {
+			return m, tickTerminalTask(m.task)
+		}
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, min(240, msg.Width)), max(1, msg.Height)
 		m.scroll = 0
 	case tea.KeyMsg:
 		key := msg.String()
+		if m.task != nil {
+			if key == "esc" || key == "ctrl+c" || key == "q" {
+				m.task.cancelling = true
+				m.task.cancel()
+			}
+			return m, nil
+		}
+		if m.launcher != nil {
+			return m, m.updateLauncher(msg)
+		}
+		if m.deletion != nil {
+			return m, m.updateReportDeletion(msg)
+		}
 		if key == "q" || key == "ctrl+c" {
 			return m, tea.Quit
 		}
+		if key == "l" {
+			m.openLauncher()
+			return m, nil
+		}
+		if m.batchView && m.batch != nil {
+			return m, m.updateBatchSummary(msg)
+		}
+		if key == "t" && m.batch != nil {
+			m.batchView, m.chooser = true, false
+			return m, nil
+		}
+		if len(m.datasets) == 0 {
+			return m, nil
+		}
 		if m.chooser {
-			choices := m.choices()
+			choices := m.historyGroups()
 			switch key {
 			case "esc", "d":
 				m.chooser = false
@@ -197,43 +324,33 @@ func (m *terminalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "pgup":
 				m.choice = max(0, m.choice-m.bodyHeight())
 			case "enter":
-				choice := choices[m.choice]
-				m.dataset, m.run, m.chooser = choice.Dataset, choice.Run, false
-				m.load()
+				m.chooseHistory(m.choice)
+			case "x", "delete":
+				choice := choices[m.choice].Entries[0]
+				m.beginReportDeletion(m.datasets[choice.Dataset].Runs[choice.Run])
 			}
 			return m, nil
 		}
 		switch key {
-		case "d":
-			m.chooser, m.chooserScroll = true, 0
-			for i, choice := range m.choices() {
-				if choice.Dataset == m.dataset && choice.Run == m.run {
-					m.choice = i
-				}
-			}
+		case "d", "r":
+			m.openReportChooser()
 		case "left", "right":
 			delta := 1
 			if key == "left" {
 				delta = -1
 			}
-			m.dataset = (m.dataset + delta + len(m.datasets)) % len(m.datasets)
-			m.run = 0
-			m.load()
-		case "r":
-			m.run = (m.run + 1) % len(m.datasets[m.dataset].Runs)
-			m.load()
-		case "e":
-			if m.section == 5 {
-				m.environmentDetails = !m.environmentDetails
-				m.scroll = 0
-			}
+			m.moveRunReport(delta)
 		case "tab", "shift+tab":
 			delta := 1
 			if key == "shift+tab" {
 				delta = -1
 			}
-			m.section = (m.section + delta + len(terminalSections)) % len(terminalSections)
-			m.scroll = 0
+			m.moveReportPage(delta)
+		case "e":
+			if m.section == 5 {
+				m.environmentDetails = !m.environmentDetails
+				m.scroll = 0
+			}
 		case "1", "2", "3", "4", "5", "6":
 			m.section, m.scroll = int(key[0]-'1'), 0
 		case "?":
@@ -244,6 +361,9 @@ func (m *terminalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.scroll = 0
 		case "p":
+			if m.section != 0 && m.section != 1 {
+				break
+			}
 			switch m.percentile {
 			case 90:
 				m.percentile = 95
@@ -254,6 +374,9 @@ func (m *terminalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.scroll = 0
 		case "c":
+			if m.section != 1 && m.section != 2 {
+				break
+			}
 			levels := m.levels()
 			for i, level := range levels {
 				if m.level == level {
@@ -263,7 +386,7 @@ func (m *terminalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.scroll = 0
 		case "n", "b":
-			if m.doc != nil {
+			if m.section == 4 && m.doc != nil && len(m.doc.View.Scenarios) > 0 {
 				delta := 1
 				if key == "b" {
 					delta = -1
@@ -288,17 +411,37 @@ func (m *terminalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *terminalModel) bodyHeight() int { return max(1, m.height-9) }
+func (m *terminalModel) bodyHeight() int { return max(1, m.height-len(m.reportHeaderRows())-2) }
 
 func (m *terminalModel) headerLines() []string {
+	rows := m.reportHeaderRows()
+	lines := make([]string, len(rows))
+	for i, row := range rows {
+		lines[i] = terminalClip(row.Text, m.width)
+	}
+	return lines
+}
+
+func (m *terminalModel) reportHeaderRows() []terminalRow {
+	rows := []terminalRow{m.brandRow()}
+	if len(m.datasets) == 0 {
+		return append(rows, terminalRow{Text: "  检索现场报告", Tone: toneHeading}, m.dividerRow())
+	}
 	dataset := m.datasets[m.dataset]
 	run := dataset.Runs[m.run]
+	history, _, reportIndex := m.currentHistory()
 	status := "断言通过"
+	if m.doc != nil && m.doc.View.MeasurementMode == "observe" {
+		status = "测量完成"
+	}
 	if m.doc != nil && m.doc.View.RunKind == "environment_inspection" {
 		status = "SQL 入口可访问"
 	}
 	if run.Status != "passed" {
 		status = "存在未通过检查"
+		if m.doc != nil && m.doc.View.MeasurementMode == "observe" {
+			status = "运行有错误"
+		}
 	}
 	level := "全部"
 	if m.level != 0 {
@@ -315,17 +458,62 @@ func (m *terminalModel) headerLines() []string {
 		}
 		tabs = append(tabs, label)
 	}
-	lines := []string{"MO Search Lab / 检索现场报告 · 终端版 " + version, fmt.Sprintf("数据集 %d/%d · %s", m.dataset+1, len(m.datasets), dataset.ID), fmt.Sprintf("运行 %d/%d · %s · 原始整体判定: %s", m.run+1, len(dataset.Runs), run.StartedAt.Format("2006-01-02 15:04 UTC"), status), strings.Join(tabs, "  "), fmt.Sprintf("P%d · 并发筛选 %s · SQL场景 %d · 跳过报告 %d（环境页可查看）", m.percentile, level, m.scenario+1, len(m.warnings)), "原始数据: " + run.Path, strings.Repeat("─", m.width)}
-	for i := range lines {
-		lines[i] = terminalClip(lines[i], m.width)
+	label := "检索报告"
+	inspection := m.doc != nil && m.doc.View.RunKind == "environment_inspection"
+	if inspection {
+		label = "环境报告"
 	}
-	return lines
+	title := label + " / " + run.DisplayName()
+	if runewidth.StringWidth(title) > m.textWidth() {
+		title = fmt.Sprintf("%d/%d %s", reportIndex+1, len(history.Entries), run.DisplayName())
+	}
+	rows = append(rows, terminalRow{Text: "  " + title, Tone: toneHeading})
+	tone := toneSuccess
+	if run.Status != "passed" {
+		tone = toneWarning
+	}
+	rows = append(rows, terminalRow{Text: "  原始整体判定: " + status, Tone: tone})
+	if m.height >= 18 {
+		caption := fmt.Sprintf("  运行 %s  ·  报告 %d/%d  ·  ←→ 切报告", history.StartedAt.Format("01-02 15:04 UTC"), reportIndex+1, len(history.Entries))
+		if !inspection {
+			switch m.section {
+			case 0:
+				caption += fmt.Sprintf("  ·  P%d  ·  并发 1", m.percentile)
+			case 1:
+				caption += fmt.Sprintf("  ·  P%d  ·  并发筛选 %s", m.percentile, level)
+			case 2:
+				caption += "  ·  并发筛选 " + level
+			case 3:
+				caption += "  ·  并发 1"
+			case 4:
+				if scenario := m.selectedScenario(); scenario != nil {
+					caption += fmt.Sprintf("  ·  所选场景并发 %d", scenario.EffectiveConcurrency)
+				}
+			}
+		}
+		rows = append(rows, terminalRow{Text: caption, Tone: toneMuted})
+		rows = append(rows, terminalRow{Text: "  原始数据  " + terminalTail(run.Path, m.textWidth()-10), Tone: toneMuted})
+	}
+	navigation := "页面  " + strings.Join(tabs, "  ")
+	if runewidth.StringWidth(navigation) > m.textWidth() {
+		navigation = tabs[m.section] + "  ·  Tab 切页"
+	}
+	rows = append(rows, terminalRow{Text: "  " + navigation, Tone: toneHeading}, m.dividerRow())
+	if m.taskNotice != "" {
+		rows = append(rows, terminalRow{Text: "  " + m.taskNotice, Tone: toneMuted})
+	}
+	if len(m.warnings) > 0 {
+		rows = append(rows, terminalRow{Text: fmt.Sprintf("  跳过 %d 份报告；环境页查看原因。", len(m.warnings)), Tone: toneWarning})
+	}
+	return rows
 }
 
 func (m *terminalModel) contentLines() []string {
 	var content []string
 	if m.loadError != nil {
-		content = []string{"报告读取失败；按 d 或方向键选择其他运行。", m.loadError.Error()}
+		content = []string{"报告读取失败；按 d 选择其他数据集或运行。", m.loadError.Error()}
+	} else if m.doc == nil {
+		content = []string{"暂无报告；按 l 配置连接并启动新任务。"}
 	} else {
 		switch m.section {
 		case 0:
@@ -350,7 +538,9 @@ func (m *terminalModel) contentLines() []string {
 	}
 	var lines []string
 	for _, block := range content {
-		lines = append(lines, terminalWrap(block, m.width)...)
+		for _, line := range terminalWrap(block, m.textWidth()) {
+			lines = append(lines, "  "+line)
+		}
 	}
 	return lines
 }
@@ -360,37 +550,35 @@ func (m *terminalModel) View() string {
 		lines := terminalWrap("请将终端调整到至少 40 列 × 12 行；q 退出。", m.width)
 		return strings.Join(lines[:min(m.height, len(lines))], "\n")
 	}
-	lines := m.headerLines()
-	lines[0] = "\x1b[1;36m" + lines[0] + "\x1b[0m"
-	var content []string
+	if m.task != nil {
+		return m.taskView()
+	}
+	if m.launcher != nil {
+		return m.launcherView()
+	}
+	if m.deletion != nil {
+		return m.reportDeletionView()
+	}
+	if m.batchView && m.batch != nil {
+		return m.batchSummaryView()
+	}
+	header := m.reportHeaderRows()
+	footer := m.reportFooter()
+	var content []terminalRow
 	if m.chooser {
-		choices := m.choices()
-		m.chooserScroll = min(m.chooserScroll, m.choice)
-		m.chooserScroll = max(m.chooserScroll, m.choice-m.bodyHeight()+1)
-		for i := m.chooserScroll; i < min(len(choices), m.chooserScroll+m.bodyHeight()); i++ {
-			choice := choices[i]
-			run := m.datasets[choice.Dataset].Runs[choice.Run]
-			prefix := "  "
-			if i == m.choice {
-				prefix = "▶ "
-			}
-			content = append(content, terminalClip(fmt.Sprintf("%s%s · %s · %s", prefix, run.Dataset, run.StartedAt.Format("2006-01-02 15:04"), run.Status), m.width))
-		}
+		header, content, footer = m.historyChooserRows()
 	} else {
 		all := m.contentLines()
 		m.scroll = min(m.scroll, max(0, len(all)-m.bodyHeight()))
-		content = all[m.scroll:min(len(all), m.scroll+m.bodyHeight())]
+		for _, line := range all[m.scroll:min(len(all), m.scroll+m.bodyHeight())] {
+			tone := toneBody
+			if terminalReportHeading(strings.TrimSpace(line)) {
+				tone = toneHeading
+			}
+			content = append(content, terminalRow{Text: line, Tone: tone})
+		}
 	}
-	lines = append(lines, content...)
-	for len(lines) < m.height-2 {
-		lines = append(lines, "")
-	}
-	footer := "d 数据集/运行  ←/→ 切换  Tab 分页  p 分位数  c 并发  ? 说明  q 退出"
-	if m.chooser {
-		footer = "↑/↓ 选择数据集/历史运行 · Enter 打开 · Esc 返回 · q 退出"
-	}
-	lines = append(lines, terminalClip(footer, m.width), terminalClip(fmt.Sprintf("↑/↓ j/k PgUp/PgDn 滚动 · r 历史运行 · n/b SQL场景 · 第 %d 行", m.scroll+1), m.width))
-	return strings.Join(lines, "\n")
+	return m.frame(header, content, footer)
 }
 
 func (m *terminalModel) writePlain(w io.Writer) error {

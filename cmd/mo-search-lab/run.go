@@ -71,6 +71,7 @@ type QueryResult struct {
 	Error        string          `json:"error,omitempty"`
 	Endpoint     string          `json:"endpoint,omitempty"`
 	Quality      *QualityMetrics `json:"quality,omitempty"`
+	Observations []string        `json:"observations,omitempty"`
 }
 
 type StabilityResult struct {
@@ -136,10 +137,12 @@ type ScenarioReport struct {
 }
 
 type Report struct {
+	MeasurementMode  string               `json:"measurement_mode,omitempty"`
 	RunKind          string               `json:"run_kind,omitempty"`
 	ToolVersion      string               `json:"tool_version"`
 	BinarySHA256     string               `json:"binary_sha256"`
 	Dataset          string               `json:"dataset"`
+	DatasetName      string               `json:"dataset_name,omitempty"`
 	ManifestSHA256   string               `json:"manifest_sha256"`
 	Inputs           []InputFile          `json:"inputs"`
 	Database         string               `json:"database"`
@@ -160,11 +163,17 @@ type Report struct {
 func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runErr error) {
 	o = defaultPackProfile(p.Scenarios, o)
 	report = Report{
-		ToolVersion: version, Dataset: p.Manifest.Dataset, ManifestSHA256: p.Digest,
+		ToolVersion: version, Dataset: p.Manifest.Dataset, ManifestSHA256: p.Digest, MeasurementMode: "observe",
 		StartedAt: time.Now().UTC(), Status: "failed", ResourceMetrics: "unavailable",
 		Profile:  Profile{QueryLimit: o.queryLimit, Repeat: o.repeat, Concurrency: o.concurrency, Warmup: o.warmup, Timeout: o.timeout.String(), ConcurrencyLevels: append([]int(nil), o.concurrencyLevels...), StabilityRepeat: o.stabilityRepeat, StabilityQueryLimit: o.stabilityQueryLimit, MixedScenarios: append([]string(nil), o.mixedScenarios...)},
 		Cleanup:  "not_started",
 		IndexSQL: append([]string(nil), p.Manifest.Indexes...),
+	}
+	var info struct {
+		Name string `json:"name"`
+	}
+	if previewPackJSON(p.Root, "pack-info.json", 16<<10, &info) {
+		report.DatasetName = strings.TrimSpace(info.Name)
 	}
 	for _, load := range p.Manifest.Loads {
 		report.Inputs = append(report.Inputs, InputFile{load.File.Path, load.File.SHA256, load.Rows})
@@ -173,6 +182,7 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 	var queryStart, queryEnd time.Time
 	defer func() {
 		if inputs.Monitor != nil && !queryStart.IsZero() {
+			notifyProgress(ctx, "采集资源监控")
 			report.Environment.Monitoring = collectMonitoring(ctx, *inputs.Monitor, queryStart, queryEnd)
 			report.ResourceMetrics = report.Environment.Monitoring.Status
 		} else if inputs.Monitor != nil {
@@ -218,6 +228,7 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 	}
 
 	config := makeSQLConfig(o)
+	notifyProgress(ctx, "连接 MO · "+sqlAddress(o))
 	report.Profile.SQLAddress = config.Addr
 	root, err := sql.Open("mysql", config.FormatDSN())
 	if err != nil {
@@ -233,12 +244,14 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 	if err := root.QueryRowContext(versionCtx, "SELECT VERSION()").Scan(&report.MatrixOneVersion); err != nil {
 		return report, fmt.Errorf("read MatrixOne version: %w", err)
 	}
+	notifyProgress(ctx, "采集运行环境")
 	collectSQLServerEnvironment(ctx, root, report.Environment, report.MatrixOneVersion, o.timeout)
 	var nonce [4]byte
 	if _, err := rand.Read(nonce[:]); err != nil {
 		return report, err
 	}
 	report.Database = fmt.Sprintf("mo_retrieval_bench_%s_%s", time.Now().UTC().Format("20060102_150405"), hex.EncodeToString(nonce[:]))
+	notifyProgress(ctx, "建立测试库 · "+report.Database)
 	if _, err := root.ExecContext(ctx, "CREATE DATABASE `"+report.Database+"`"); err != nil {
 		return report, fmt.Errorf("create test database: %w", err)
 	}
@@ -250,6 +263,7 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 		}
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), o.timeout)
 		defer cancel()
+		notifyProgress(ctx, "清理测试库 · "+report.Database)
 		if _, err := root.ExecContext(cleanupCtx, "DROP DATABASE `"+report.Database+"`"); err != nil {
 			report.Cleanup = "failed: " + err.Error()
 			report.Errors = append(report.Errors, "cleanup: "+err.Error())
@@ -322,7 +336,7 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 		// sessions so a previous scenario's SET values cannot become defaults.
 		db.SetMaxIdleConns(0)
 		db.SetMaxIdleConns(2 * maxConcurrency)
-		fmt.Fprintf(os.Stderr, "run %s: client concurrency=%d repeat=%d query-limit=%d\n", run.Scenario.ID, run.Options.concurrency, run.Options.repeat, run.Options.queryLimit)
+		logProgress(ctx, fmt.Sprintf("run %s: client concurrency=%d repeat=%d query-limit=%d", run.Scenario.ID, run.Options.concurrency, run.Options.repeat, run.Options.queryLimit))
 		sr := runScenario(ctx, db, run.Scenario, run.Options, config)
 		report.Scenarios[i] = sr
 		if sr.Failures > 0 {
@@ -336,7 +350,7 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 	for i, pair := range mixed {
 		db.SetMaxIdleConns(0)
 		db.SetMaxIdleConns(2 * maxConcurrency)
-		fmt.Fprintf(os.Stderr, "run mixed %s + %s: paired concurrency=%d\n", pair[0].Scenario.ID, pair[1].Scenario.ID, pair[0].Options.concurrency)
+		logProgress(ctx, fmt.Sprintf("run mixed %s + %s: paired concurrency=%d", pair[0].Scenario.ID, pair[1].Scenario.ID, pair[0].Options.concurrency))
 		results := runMixedScenarios(ctx, db, pair)
 		for route, sr := range results {
 			report.Scenarios[len(runs)+2*i+route] = sr
@@ -350,8 +364,6 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 	}
 	return report, nil
 }
-
-func getenv(name string) string { return os.Getenv(name) }
 
 func executableDigest() (string, error) {
 	path, err := os.Executable()
@@ -371,7 +383,7 @@ func executableDigest() (string, error) {
 }
 
 func execStage(ctx context.Context, db *sql.DB, report *Report, name, statement string, timeout time.Duration) error {
-	fmt.Fprintf(os.Stderr, "stage %s\n", name)
+	logProgress(ctx, "stage "+name)
 	start := time.Now()
 	queryCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -516,11 +528,7 @@ func executeQuery(ctx context.Context, db sqlQueryer, s loadedScenario, q query,
 	}
 	result.SQLSucceeded = true
 	result.IDs = ids
-	result.Score, result.Pass, result.Error = scoreQuery(s.scenario, q, ids)
-	if s.Oracle == "qrels" {
-		metrics := qualityMetrics(s.scenario, q, ids)
-		result.Quality = &metrics
-	}
+	evaluateRawResult(&result, s, q)
 	return result
 }
 
@@ -529,9 +537,9 @@ func initialScenarioReport(s loadedScenario, o options) ScenarioReport {
 	if o.queryLimit > 0 {
 		selected = min(selected, o.queryLimit)
 	}
-	return ScenarioReport{ID: s.ID, Route: s.Route, Oracle: s.Oracle, MinScore: s.MinScore, TopK: s.TopK, CandidateK: s.CandidateK, SQL: s.SQL, VectorSQL: s.VectorSQL, SessionSQL: s.SessionSQL, PlanMustContain: s.PlanContains, SelectedQueries: selected,
+	return ScenarioReport{ID: s.ID, Route: s.Route, Oracle: s.Oracle, TopK: s.TopK, CandidateK: s.CandidateK, SQL: s.SQL, VectorSQL: s.VectorSQL, SessionSQL: s.SessionSQL, SelectedQueries: selected,
 		FulltextSQL: s.FulltextSQL, ScenarioSHA256: s.Digest, QueriesSHA256: s.QueryDigest, EffectiveConcurrency: o.concurrency, Repetitions: o.repeat,
-		QualityMode: s.QualityMode, NDCGGain: s.NDCGGain, RelevantGrade: s.RelevantGrade, CheckOrder: s.CheckOrder, AllowEmpty: s.AllowEmpty}
+		QualityMode: "observe", NDCGGain: s.NDCGGain, RelevantGrade: s.RelevantGrade, CheckOrder: s.Oracle == "stable_multiset" || s.CheckOrder, AllowEmpty: s.AllowEmpty}
 }
 
 func runScenario(ctx context.Context, db *sql.DB, s loadedScenario, o options, config *mysql.Config) ScenarioReport {

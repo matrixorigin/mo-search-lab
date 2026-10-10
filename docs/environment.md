@@ -4,6 +4,7 @@
 
 ```sh
 ./mo-search-lab inspect --host 10.0.0.10 --port 6001 --user BENCH_USER \
+  --password '你的密码' \
   --mo-config /path/to/cn1.toml --mo-config /path/to/cn2.toml \
   --environment-file /path/to/deployment.json \
   --report-dir reports/environment-001
@@ -13,7 +14,7 @@
   --plain --environment-details
 ```
 
-SQL 密码仍从 `MO_BENCH_PASSWORD` 读取。`inspect` 仅执行只读 SQL：`VERSION()`、版本注释、构建时间、Git 提交、选定会话默认变量、`SHOW BACKEND SERVERS` 及 `mo_catalog.mo_configurations` 的允许字段。不建库、不建索引、不导入或压测。版本查询失败时检查失败；额外信息不支持或权限不足时展示未知与原因。
+SQL 密码通过 `--password` 直接传入，省略表示空密码；交互式 UI 遮蔽显示并可修改，密码不写入报告。`inspect` 仅执行只读 SQL：`VERSION()`、版本注释、构建时间、Git 提交、选定会话默认变量、`SHOW BACKEND SERVERS` 及 `mo_catalog.mo_configurations` 的允许字段。不建库、不建索引、不导入或压测。版本查询失败时检查失败；额外信息不支持或权限不足时展示未知与原因。
 
 `run` 默认也采集这些信息，三个环境参数均可追加到原有 `run` 命令。所有参数可省略；仅连接 SQL 时服务端硬件、完整拓扑及部署类型保持未知。SQL 可见 CN 与客户端并发、SQL 端点数分别记录；受账号、标签和路由影响，不能单凭它确认整个集群的 CN/TN 数量。
 

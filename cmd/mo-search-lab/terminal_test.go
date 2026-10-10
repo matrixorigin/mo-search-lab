@@ -126,7 +126,7 @@ func TestTerminalMeasurementsAndEscaping(t *testing.T) {
 	}
 	for page, wanted := range map[int][]string{
 		0: {"P95 延迟", "20.000", "暂无成功样本", "0.000"},
-		1: {"vector / C4", "80.000", "vector / C8", "160.000", "成功查询吞吐"},
+		1: {"向量检索 / C4", "80.000", "向量检索 / C8", "160.000", "成功查询吞吐"},
 		2: {"Recall@100", "0.375", "平均返回 1.00", "nDCG@10", "0.200", "0.400", "0.600", "0.500"},
 		3: {"●!×·", "集合 1 种，顺序 2 种", "失败 2/3"},
 		4: {"SELECT id FROM vectors", "LIMIT 100", "fixed-queries"},
@@ -180,8 +180,16 @@ func TestTerminalMeasurementsAndEscaping(t *testing.T) {
 func terminalKey(m *terminalModel, key string) tea.Cmd {
 	var msg tea.KeyMsg
 	switch key {
+	case "left":
+		msg.Type = tea.KeyLeft
 	case "right":
 		msg.Type = tea.KeyRight
+	case "tab":
+		msg.Type = tea.KeyTab
+	case "shift+tab":
+		msg.Type = tea.KeyShiftTab
+	case "esc":
+		msg.Type = tea.KeyEsc
 	case "down":
 		msg.Type = tea.KeyDown
 	case "enter":
@@ -204,7 +212,7 @@ func TestTerminalNavigationAndFailedSwitch(t *testing.T) {
 		t.Fatalf("navigation: %+v", m)
 	}
 	body := strings.Join(m.contentLines(), "\n")
-	if !strings.Contains(body, "vector / C4") || strings.Contains(body, "vector / C8") {
+	if !strings.Contains(body, "向量检索 / C4") || strings.Contains(body, "向量检索 / C8") {
 		t.Fatal("profile selector did not isolate the measured level")
 	}
 	terminalKey(m, "4")
@@ -216,6 +224,7 @@ func TestTerminalNavigationAndFailedSwitch(t *testing.T) {
 	if m.section != 3 {
 		t.Fatal("help did not restore prior page")
 	}
+	terminalKey(m, "5")
 	terminalKey(m, "n")
 	if m.selectedScenario().EffectiveConcurrency != 4 {
 		t.Fatal("SQL scenario navigation did not change profile")
@@ -248,7 +257,9 @@ func TestTerminalNavigationAndFailedSwitch(t *testing.T) {
 	if err := os.WriteFile(broken, []byte("{}"), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	terminalKey(m, "right")
+	terminalKey(m, "d")
+	terminalKey(m, "down")
+	terminalKey(m, "enter")
 	if m.doc != nil || m.loadError == nil || m.level != 0 || m.scenario != 0 {
 		t.Fatal("failed switch retained stale document/profile")
 	}
