@@ -48,6 +48,40 @@ sha256sum -c SHA256SUMS
 
 “更多设置”可减少查询数和重复数，但仍导入全量数据并建立索引。普通查询和稳定性使用独立预算；只减少普通查询数，不会减少稳定性的默认 5 × 30 次测量。
 
+## 界面与报告预览
+
+以下为 v0.13.2 的实际界面。报告数值来自本地公开数据集测量，用于展示报告布局，不作为客户现场的验收标准。
+
+### CLI：勾选测试与并发
+
+常用项目集中展示，默认勾选；4、8 并发作为各数据集的可选子项。焦点下方说明数据规模与测量范围，底部保留操作提示。
+
+<img src="docs/images/cli-test-selection.png" alt="CLI 测试选择界面：四个常用项目与可选的 4、8 并发" width="960">
+
+<details>
+<summary>展开 CLI 报告示例</summary>
+
+报告概览用横向柱状图展示单并发延迟与吞吐，数值列对齐。页头标明当前 run、报告序号和页面；左右切报告，Tab 切页面，`d` 选历史 run。
+
+<img src="docs/images/cli-report.png" alt="CLI 报告概览：GIST1M 单并发 P95 延迟与 QPS 柱状图" width="960">
+
+</details>
+
+### HTML：性能图表与独立环境页
+
+性能报告以图表为主，按测试场景区分颜色；延迟可以切换 P90/P95/P99。顶部的“性能测试 / 运行环境”切换同一次运行的测量与配置，详细数值和原始记录保留查看入口。
+
+<img src="docs/images/html-performance.png" alt="HTML 性能报告：吞吐、可切换分位数的延迟与 Recall 图表" width="960">
+
+<details>
+<summary>展开运行环境页示例</summary>
+
+环境页按版本与部署、节点与缓存、检索参数及资源监控分区。相同节点配置合并展示，配置来源、默认值与未知项明确标注。
+
+<img src="docs/images/html-environment.png" alt="HTML 运行环境页：MO 版本、可见节点、内存缓存、metadata 缓存和磁盘缓存" width="960">
+
+</details>
+
 ## 看报告与管理历史
 
 ```bash
