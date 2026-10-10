@@ -56,12 +56,28 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
+	args := os.Args[1:]
+	if args[0] == "help" {
+		if len(args) == 1 {
+			writeRootHelp(os.Stdout)
+			return
+		}
+		if len(args) != 2 || commandHelp[args[1]] == "" {
+			fmt.Fprintln(os.Stderr, "用法：mo-search-lab help [ui|run|inspect|validate|render|version]")
+			os.Exit(2)
+		}
+		args = []string{args[1], "--help"}
+	}
 	var err error
-	switch os.Args[1] {
+	switch args[0] {
+	case "-h", "--help":
+		writeRootHelp(os.Stdout)
+		return
 	case "validate":
 		fs := flag.NewFlagSet("validate", flag.ExitOnError)
-		pack := fs.String("pack", "", "path to a versioned pack directory")
-		_ = fs.Parse(os.Args[2:])
+		pack := fs.String("pack", "", "必填：版本化数据包目录")
+		configureCommandHelp(fs)
+		_ = fs.Parse(args[1:])
 		if *pack == "" {
 			err = fmt.Errorf("--pack is required")
 		} else {
@@ -74,7 +90,8 @@ func main() {
 		fs := flag.NewFlagSet("run", flag.ExitOnError)
 		var o options
 		levels, mixed, endpoints := registerRunFlags(fs, &o)
-		_ = fs.Parse(os.Args[2:])
+		configureCommandHelp(fs)
+		_ = fs.Parse(args[1:])
 		if o.pack == "" || o.repeat < 1 || o.repeat > 100000 || o.concurrency < 1 || o.concurrency > 128 || o.warmup < 0 || o.warmup > 10000 || o.queryLimit < 0 || o.timeout <= 0 || o.timeout > (1<<63-1)/10 || o.port < 1 || o.port > 65535 {
 			err = fmt.Errorf("invalid run flags: --pack, repeat 1..100000, concurrency 1..128, warmup 0..10000, positive timeout/port, nonnegative query-limit are required")
 		} else {
@@ -139,8 +156,9 @@ func main() {
 		var o options
 		registerConnectionFlags(fs, &o)
 		registerEnvironmentFlags(fs, &o)
-		fs.StringVar(&o.reportDir, "report-dir", "environment-"+time.Now().UTC().Format("20060102-150405.000000000"), "new output directory")
-		_ = fs.Parse(os.Args[2:])
+		fs.StringVar(&o.reportDir, "report-dir", "environment-"+time.Now().UTC().Format("20060102-150405.000000000"), "新环境报告目录；默认名称含 UTC 时间，不覆盖已有目录")
+		configureCommandHelp(fs)
+		_ = fs.Parse(args[1:])
 		if o.port < 1 || o.port > 65535 || o.timeout <= 0 || o.timeout > (1<<63-1)/10 {
 			err = fmt.Errorf("inspect requires a valid port and positive bounded timeout")
 		} else if err = ensureReportTarget(o.reportDir); err == nil {
@@ -155,15 +173,20 @@ func main() {
 			}
 		}
 	case "version":
+		if len(args) > 1 && (args[1] == "--help" || args[1] == "-h") {
+			fmt.Fprint(os.Stdout, commandHelp["version"])
+			return
+		}
 		fmt.Println(version)
 	case "ui":
-		err = runTerminalUI(os.Args[2:])
+		err = runTerminalUI(args[1:])
 	case "render":
 		fs := flag.NewFlagSet("render", flag.ExitOnError)
-		dir := fs.String("report-dir", "", "directory containing report.json; regenerate only report.html")
-		levels := fs.String("concurrency-levels", "", "show only these measured concurrency levels; retain repeated stability")
-		scenarioIDs := fs.String("scenario-ids", "", "comma-separated measured ordinary scenario IDs to display; retain repeated stability")
-		_ = fs.Parse(os.Args[2:])
+		dir := fs.String("report-dir", "", "必填：含 report.json 的单份报告目录；仅更新 report.html")
+		levels := fs.String("concurrency-levels", "", "只显示指定的已测并发档位；保留独立稳定性场景")
+		scenarioIDs := fs.String("scenario-ids", "", "显示的已测普通场景 ID，以逗号分隔；保留独立稳定性场景")
+		configureCommandHelp(fs)
+		_ = fs.Parse(args[1:])
 		if *dir == "" {
 			err = fmt.Errorf("--report-dir is required")
 		} else {
@@ -193,5 +216,5 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: mo-search-lab validate --pack DIR | run --pack DIR [options] | inspect [options] | render --report-dir DIR | ui --reports DIR | version")
+	writeRootHelp(os.Stderr)
 }

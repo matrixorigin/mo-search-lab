@@ -40,7 +40,7 @@ sha256sum -c SHA256SUMS
 
 ## 使用
 
-用 MO Search Lab v0.8.3 或更高版本指定所选 pack 的路径：
+建议使用当前工具版本，指定所选 pack 的路径（新默认值与交互选项见 [Quick Start](../README.md)）：
 
 ```text
 mo-search-lab-datasets-v1/packs/gist_1m_filtered_v7

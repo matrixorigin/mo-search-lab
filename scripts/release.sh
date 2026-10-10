@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-version=${1:-v0.13.1}
+version=${1:-v0.13.2}
 target_os=${2:-linux}
 target_arch=${3:-amd64}
 for component in "$version" "$target_os" "$target_arch"; do

@@ -1,13 +1,34 @@
-# MatrixOne retrieval field benchmark
+# MO Search Lab command reference
 
 This command is a standalone client for on-site retrieval checks. It connects to an existing MatrixOne SQL service, creates a uniquely named database, loads a **versioned public data pack**, builds the pack's indexes, measures fulltext/vector/filtered/hybrid queries, and writes local JSON and HTML reports. It does not install MatrixOne, call an embedding model, or require Python or a MySQL CLI at the customer site.
+
+## Help and command selection
+
+```sh
+./mo-search-lab --help
+./mo-search-lab help ui
+./mo-search-lab run --help
+```
+
+Root help lists commands and startup examples. Every command accepts `-h` or
+`--help`; `help COMMAND` opens the same help without performing SQL, pack reads,
+or report writes. Use `ui` for interactive multi-project runs and history,
+`run --pack DIR` for a scripted single pack, `inspect` for read-only environment
+collection, `validate --pack DIR` for full input hash checks, and
+`render --report-dir DIR` to regenerate one report's HTML.
+
+Viewing flags are distinct from launch fields: `ui --concurrency` filters
+already measured results; choose execution concurrency in the dataset checklist.
+`ui --reports` scans a history root; `ui --report-dir` opens one invocation or
+its member report, while `render --report-dir` requires a single report folder.
+Only history selection (`d`) offers whole-run deletion.
 
 ## Build and run
 
 Build from this standalone repository for the customer's OS/architecture. Its own `go.mod` pins a pure-Go MySQL protocol driver and terminal libraries; this package does not import MatrixOne kernel packages or CGo vector dependencies:
 
 ```sh
-CGO_ENABLED=0 GOWORK=off go build -mod=readonly -trimpath -ldflags='-s -w -X main.version=v0.10.1' -o mo-search-lab ./cmd/mo-search-lab
+make build
 ./mo-search-lab validate --pack ./cmd/mo-search-lab/testdata/smoke
 ./mo-search-lab run --host 127.0.0.1 --port 6001 --user root \
   --password 'YOUR_PASSWORD' \
@@ -15,20 +36,20 @@ CGO_ENABLED=0 GOWORK=off go build -mod=readonly -trimpath -ldflags='-s -w -X mai
   --query-limit 2 --repeat 3 --concurrency 1
 ```
 
-In the prototype release archive, the smoke pack is at `packs/smoke`; use that path with the included executable. Replace it with a separately prepared public data pack for a customer-scale check.
+In the tool release archive, the smoke pack is at `packs/smoke`; use that path with the included executable. Replace it with a separately prepared public data pack for a customer-scale check.
 
-The default output directory has a timestamped name. The command prints its path and refuses to overwrite an existing report. `report.html` is self-contained and `report.json` contains the raw per-query observations and SQL. A failed run still writes both files after pack validation. The process exits nonzero if setup, quality checks, SQL execution, or cleanup fails. The test database is dropped on exit; `--keep-db` preserves it for investigation.
+The default output directory has a timestamped name. The command prints its path and refuses to overwrite an existing report. `report.html` is self-contained and `report.json` contains the raw per-query observations and SQL. A failed run still writes both files after pack validation. The process exits nonzero if preparation, connection, SQL execution, or cleanup fails. Quality and stability differences are recorded as observations, without acceptance assertions. The test database is dropped on exit; `--keep-db` preserves it for investigation.
 
 The HTML has **性能测试 / 运行环境** tabs. Performance charts open first; the environment tab shows the snapshot from that same run, with diagnostic details and raw JSON links. Tabs work offline, support arrow keys and Home/End, and both sections remain readable when printing or with JavaScript disabled. Historical reports without a captured snapshot say so explicitly. Standalone `inspect` reports remain environment pages.
 
-### Default health profile (v0.10.1)
+### Default health profile
 
 `run --pack DIR` now runs all scenarios in that pack with this profile:
 
 | Setting | Default |
 | --- | --- |
 | Ordinary queries | All queries, each measured once |
-| Client concurrency levels | 1, 4, 8; filter-only validation packs default to serial (1) |
+| Client concurrency levels | 1; explicitly request 4/8 in the UI checklist or use `--concurrency-levels 1,4,8` in scripts |
 | Unmeasured warmup | 5 queries per scenario/profile |
 | Independent stability | Up to 5 queries, each repeated 30 times, concurrency 1 |
 | Query/plan timeout | 3 minutes; preparation retains its 10x multiplier |
@@ -49,7 +70,7 @@ Paired SQL remains explicitly selected with `--mixed-scenarios ID1,ID2`; the CLI
 does not infer pairings for arbitrary extension packs. Retention limits still
 apply to the expanded profile before any database is created.
 
-The HTML report starts with charts. A concurrency sweep overlays scenarios in consistent colors for QPS, switchable P90/P95/P99 latency and quality. Each metric uses a zero-based linear axis; percentile views label their own scale. Repeated stability appears as a query-by-repetition grid, with separate states for passed assertions, assertion failures, SQL errors, and missing executions. The grid shows up to 30 queries and 60 contiguous repetition bins, prioritizing errors within a bin.
+The HTML report starts with charts. A concurrency sweep overlays scenarios in consistent colors for QPS, switchable P90/P95/P99 latency and quality. Each metric uses a zero-based linear axis; percentile views label their own scale. Repeated stability appears as a query-by-repetition grid, with separate states for unchanged results, changed sets/order, SQL errors, and missing executions. Legacy reports retain their recorded assertion outcomes. The grid shows up to 30 queries and 60 contiguous repetition bins, prioritizing errors within a bin.
 
 Numeric tables, measurement metadata, and complete per-scenario charts are collapsed in native expandable details. Reports without concurrency profiles instead show per-query quality bars (up to 30 inputs) and P90/P95/P99 on a shared linear millisecond axis. Zero quality scores remain distinct from missing SQL observations. Exact P50/P90/P95/P99 values and all observations remain available in tables and JSON. Percentiles use successful measured SQL round trips, including quality failures and excluding SQL errors/warmups, with nearest-rank selection `ceil(p*N)`. The chart shows the sample count; for fewer than 100 samples, P99 is the sample maximum. It makes no external requests. Regenerate an older HTML report from its saved observations without rerunning MatrixOne:
 
@@ -59,7 +80,9 @@ Numeric tables, measurement metadata, and complete per-scenario charts are colla
 
 This command atomically replaces only `report.html`; `report.json` and its original measurement identity/hashes remain unchanged. The renderer reconstructs missing P90 from per-query observations and labels its own version separately. [The v3 report contract](../../docs/design/field_retrieval_benchmark_v3.md) describes the compatibility and chart semantics.
 
-The bundled eight-row pack is **only a runner smoke fixture**. It now includes a repeated-result stability scenario and requires `--repeat 3` or higher. It cannot support a customer performance claim. The first customer-scale pack should use approximately 1–2.3 million public T2Ranking passages, frozen query/qrels files, and offline BGE-large-zh-v1.5 embeddings with pinned model revision and generation settings. Separate packs can cover LCQMC similar-question matching and GIST1M pure ANN behavior. The on-site host needs only this executable, the selected pack, network access to MatrixOne, and SQL permissions to create/drop a database and create tables/indexes. An optional Grafana integration is future work; unavailable resource metrics are explicit in the report.
+The bundled eight-row pack is **only a runner smoke fixture**, not customer performance evidence. Its stability scenario requires at least three repetitions; the default independent `--stability-repeat 30` covers that requirement, regardless of ordinary `--repeat`. When opting into inheritance with `--stability-repeat 0`, choose `--repeat 3` or higher.
+
+The published datasets-v1 archive includes GIST1M filtered vectors, 2,303,643 T2Ranking passages with 500 frozen anli-shaped queries, and paired SQL using their shared CSVs. The separate GIST health Top-100 pack adds vector performance/recall measurements. T2Ranking semantic vector and hybrid packs still require separately prepared embeddings and exact vector truth; they are not part of that archive. The on-site host needs the executable, selected packs, and access to MatrixOne. Optional scoped Grafana/Prometheus queries are supported through `--monitoring-config`; unavailable resource metrics are explicit in the report.
 
 ## Interactive terminal runner and report viewer
 
@@ -73,7 +96,7 @@ are not needed for viewing:
 ./mo-search-lab ui --reports /path/to/reports --dataset gist1m_filtered_v7
 ```
 
-Start a task directly from the terminal dashboard (v0.10.0):
+Start a task directly from the terminal dashboard:
 
 ```sh
 ./mo-search-lab ui --launch --reports reports --packs packs \
@@ -102,7 +125,7 @@ concurrency-1 baseline; filter checks and stability remain serial. `s` selects
 projects only, and Esc restores both project and concurrency selections.
 
 Defaults match `run`: all queries, concurrency 1 for every project, and independent stability checks. More settings include query
-budgets, explicit concurrency, paired SQL scenario IDs, timeouts and optional
+budgets, paired SQL scenario IDs, timeouts and optional
 environment/TOML/monitoring inputs. Selecting the distributed GIST/T2 SQL
 workload uses `vector,fulltext` for its paired profiles. Each selected pack
 retains its own defaults; the paired setting does not affect the other projects.
@@ -127,8 +150,8 @@ newest invocation first. A standalone report is shown as one invocation.
 Opening a report does not rerun SQL or change any original file. The dashboard
 has six pages: an initial concurrency-1 bar chart, concurrency latency/QPS,
 recall and relevance quality, repeat stability, SQL/plans, and environment.
-Metric definitions open with `?`. Overall assertion status stays visible under
-profile selection; missing samples are shown as unavailable.
+Metric definitions open with `?`. The recorded overall execution status stays visible under
+profile selection; missing samples are shown as unavailable. Legacy records keep their original assertion status.
 
 | Keys | Action |
 | --- | --- |
@@ -202,12 +225,12 @@ next profile starts. SQL workers have ready pinned connections before timing;
 idle sessions are drained between profiles to reset session parameters. A sweep retains at most 100,000 executions and 1,000,000
 result IDs in total; profiles are checked before creating a database. Zero
 `--stability-repeat`/`--stability-query-limit` inherits `--repeat`/`--query-limit`.
-Since v0.8.1, omitting these flags selects the default health profile above;
-explicit single-concurrency and zero/inheritance flags preserve their meaning.
+Omitting these flags selects concurrency 1 and the independent 5-query × 30-repeat stability budget.
+Explicit single-concurrency and zero/inheritance flags preserve their meaning.
 
 The report groups concurrency observations by scenario, showing QPS and
 P90/P95/P99 curves plus exact values, sample counts, measured duration, quality,
-SQL errors and assertion failures. SQL-success QPS is successes divided by
+SQL errors and result changes. Legacy assertion failures remain visible in old records. SQL-success QPS is successes divided by
 measured scenario wall time. The concurrency number is a client in-flight limit;
 finite batches and sequential cache warming affect the observed performance.
 For `hybrid_rrf`, a successful execution is one fused retrieval request whose
@@ -231,7 +254,7 @@ need the independent recall scenario for quality evidence. See the
 | `nonempty` | Query must return at least one row. |
 | `stable_multiset` (v2) | Repeated identical queries must return the same ID multiset; optional `exact_ids` also checks truth. |
 
-Each query line gives an ID, named parameters, and oracle data (`exact_ids` or `relevance`). Add a customer issue as a new scenario and query file, then update the manifest with their hashes. A scenario can reproduce filtering, access restrictions, soft deletion, a specific SQL plan, ANN recall, hybrid rank fusion, or repeated-result drift. Hybrid scenarios use `candidate_k` per SQL route before fusing to `top_k` final IDs, so a CA-assistant-like pack can retrieve 600 candidates per route and report the final top 10. `--query-limit`, `--repeat`, `--concurrency`, and `--warmup` select a runtime profile without changing the pack. For a multi-CN stability test, add `--query-endpoints cn1:6001,cn2:6001`; the runner pins one session per endpoint, applies scenario `session_sql`, rotates identical queries across endpoints, and records `EXPLAIN PHYPLAN`. Use `plan_must_contain` in the scenario to require evidence of the intended distributed plan. Stability checks run sequentially and report their effective concurrency as 1. The result report records the actual count and profile. All pack SQL is trusted release content; review it before shipping and use a SQL account scoped to the test environment.
+Each query line gives an ID, named parameters, and oracle data (`exact_ids` or `relevance`). Add a customer issue as a new scenario and query file, then update the manifest with their hashes. A scenario can reproduce filtering, access restrictions, soft deletion, a specific SQL plan, ANN recall, hybrid rank fusion, or repeated-result drift. Hybrid scenarios use `candidate_k` per SQL route before fusing to `top_k` final IDs, so a CA-assistant-like pack can retrieve 600 candidates per route and report the final top 10. `--query-limit`, `--repeat`, `--concurrency`, and `--warmup` select a runtime profile without changing the pack. For a multi-CN stability test, add `--query-endpoints cn1:6001,cn2:6001`; the runner pins one session per endpoint, applies scenario `session_sql`, rotates identical queries across endpoints, and records `EXPLAIN PHYPLAN`. Historical packs may declare `plan_must_contain`; current runs record physical plans without enforcing that assertion. Stability checks run sequentially and report their effective concurrency as 1. The result report records the actual count and profile. All pack SQL is trusted release content; review it before shipping and use a SQL account scoped to the test environment.
 
 Before a large pack is used for customer reporting, freeze the public source revision/license, row ID mapping, embedding model revision and normalization, exact-search method, relevance judgments, checksums, and a successful reference run. Keep CSV and query inputs in the pack; do not embed multi-gigabyte data in the binary. `docs/design/field_retrieval_benchmark_v1.md` records the v1 boundaries and future extensions.
 
@@ -251,7 +274,7 @@ python3 tools/prepare_public_pack.py gist \
 
 The T2Ranking pack uses the first selected passages and only dev judgments for passages in that subset. Its nDCG is a pilot observation, not the official full-corpus benchmark. A GIST subset uses `nonempty` because the published nearest-neighbor truth was computed against all one million vectors; only a full GIST pack enables `ann_recall`. `--nprobes` adds scenarios with session-scoped `SET probe_limit` beside the server-default setting, allowing recall and latency to be compared on the same index. Add `--skip-default` to generate a pack containing only the explicit probe settings. SQL scenarios that use `session_sql` pin and configure one connection per query worker; the setting also applies to their EXPLAIN and warmup queries. Both generated packs should be validated with `mo-search-lab validate --pack DIR` before a run. T2Ranking vector and hybrid scenarios still require separately generated, pinned embeddings and exact vector truth.
 
-`passed` means the pack's explicit query/quality assertions passed in this run. SQL QPS, latency percentiles, and mean quality score include every query whose SQL completed, including queries that failed a quality assertion; SQL errors are counted as failures and excluded from those three metrics. Throughput and latency are observations with no universal pass line, and they exclude embedding generation, application reranking, and LLM work. A stable result is not necessarily a correct result; freeze `exact_ids` when the correct set is known. The eight-row smoke fixture cannot prove the multi-CN IVF fix. For cross-run comparisons, use the same pack digest, MatrixOne version, hardware/load conditions, and runtime profile. `docs/design/field_retrieval_benchmark_v2.md` records the stability contract and remaining customer-regression pack work; it is also included in the release archive.
+For current `measurement_mode: observe` records, `passed` means preparation, SQL execution and cleanup completed without errors. Quality and stability differences do not change that status. Legacy reports retain the pack's original query/quality assertion outcomes. SQL QPS, latency percentiles, and mean quality score include every query whose SQL completed, including queries that failed a quality assertion; SQL errors are counted as failures and excluded from those three metrics. Throughput and latency are observations with no universal pass line, and they exclude embedding generation, application reranking, and LLM work. A stable result is not necessarily a correct result; freeze `exact_ids` when the correct set is known. The eight-row smoke fixture cannot prove the multi-CN IVF fix. For cross-run comparisons, use the same pack digest, MatrixOne version, hardware/load conditions, and runtime profile. `docs/design/field_retrieval_benchmark_v2.md` records the stability contract and remaining customer-regression pack work; it is also included in the release archive.
 
 
 For GIST, `--top-k` controls returned neighbors, the exact truth width, and
@@ -261,8 +284,8 @@ measures Recall@100 and repeats a 100-ID set. A shorter truth file is rejected;
 results from different K values are separate measurement profiles.
 
 
-The current GIST health profile uses client concurrency 1, 4 and 8. Project an
-existing report onto these already measured levels without rerunning SQL:
+GIST health runs default to concurrency 1. If a run explicitly measured 1, 4
+and 8, project its saved report onto those levels without rerunning SQL:
 
 ```sh
 ./mo-search-lab render --report-dir /path/to/gist-health-report \
@@ -318,8 +341,8 @@ duplicate or absent IDs before replacing HTML. Original JSON and overall verdict
 remain intact; the HTML identifies its selection. Primary-key load checks remain
 in the raw record and can be displayed by rendering without a selector. All
 scoring algorithms are pinned per session; the application's BM25 class name
-alone does not establish the customer's actual database setting. nDCG thresholds
-are explicit pack checks, not official T2Ranking acceptance standards.
+alone does not establish the customer's actual database setting. Frozen nDCG thresholds
+are historical pack metadata; current runs observe scores without an acceptance threshold.
 
 The scope and evidence are recorded in
 [design v5](../../docs/design/field_retrieval_benchmark_v5.md).
@@ -382,15 +405,16 @@ Schema 3 qrels options:
   are not silently recalculated.
 - `relevant_grade: 2` counts grades 2/3 for Recall@top_k and MRR@10; graded
   nDCG@10 and nDCG@top_k still use all positive relevance levels.
-- `check_order: true` adds ordering assertions to `stable_multiset`.
-  `allow_empty: true` allows a consistently empty ranking, with
-  `expected_rows: 0`; it does not claim relevance. Legacy defaults are unchanged.
+- `check_order: true` describes the legacy ordering check. Current measurement
+  runs record set and order changes as observations, without failing acceptance.
+  `allow_empty: true` with `expected_rows: 0` describes an allowed empty ranking;
+  a stable empty result does not establish relevance.
 - `exact_ids: []` explicitly declares a known negative functional result.
   Missing exact truth is rejected; ANN truth must be nonempty.
 
-Standalone reports separate execution/functional health, relevance and repeat
-stability, while preserving the original combined assertion status and CLI exit
-code. Index SQL, metric options and per-execution quality metrics are saved in
+Standalone reports separate execution, relevance and repeat stability. Current
+runs use execution errors for status and CLI exit code; historical raw records
+preserve their combined assertion status. Index SQL, metric options and per-execution quality metrics are saved in
 raw JSON. Observed low scores alone do not fail health. Current anli packs use
 synthetic OPEN permissions/fixed timestamps, candidate limit and post-Top-K
 score cutoff 0.01; they measure the fulltext leg, not permission selectivity,
