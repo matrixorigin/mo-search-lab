@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -49,7 +50,8 @@ body{font:15px/1.55 system-ui,sans-serif;color:#172335;background:#f3f6fa;margin
 {{if .Overview.Enabled}}<details class="detail-panel"><summary>全部场景 P50 / P90 / P95 / P99</summary><!-- latency --></details>{{else}}<!-- latency -->{{end}}
 <details class="detail-panel" id="query-details"><summary>逐场景数值与失败计数 · {{len .Scenarios}} 组</summary><div class="chart-scroll"><table><tr><th>场景</th><th>路线／真值</th><th>Top-K／候选数</th><th>查询／执行</th><th>客户端并发上限</th><th>{{if eq .MeasurementMode "observe"}}SQL 错误{{else}}失败（SQL / 断言）{{end}}</th><th>P50 / P90 / P95 / P99 ms</th><th>查询 QPS</th><th>{{if eq .MeasurementMode "observe"}}质量均值{{else}}质量均值／阈值{{end}}</th></tr>{{range .Scenarios}}<tr><td>{{scenarioName .ID}}{{range .SessionSQL}}<br><small><code>{{.}}</code></small>{{end}}</td><td>{{.Route}} / {{.Oracle}}</td><td>{{.TopK}} / {{.CandidateK}}</td><td>{{.SelectedQueries}} / {{.Executions}}</td><td>{{.EffectiveConcurrency}}</td><td>{{if eq .QualityMode "observe"}}{{.SQLFailures}}{{else}}{{.Failures}}{{if .Repetitions}}（{{.SQLFailures}} / {{.AssertionFailures}}）{{end}}{{end}}{{if .Error}}<br><small class="fail">{{.Error}}</small>{{end}}</td><td>{{if and .Repetitions (eq .SQLSuccesses 0)}}暂无样本{{else}}{{printf "%.1f / %.1f / %.1f / %.1f" .P50MS .P90MS .P95MS .P99MS}}{{end}}</td><td>{{if and .Repetitions (eq .SQLSuccesses 0)}}暂无样本{{else}}{{printf "%.1f" .QPS}}{{end}}</td><td>{{if and .Repetitions (eq .SQLSuccesses 0)}}暂无样本{{else if eq .QualityMode "observe"}}{{printf "%.3f" .MeanScore}}{{else}}{{printf "%.3f / %.3f" .MeanScore .MinScore}}{{end}}</td></tr>{{end}}</table></div></details>
 {{if .Errors}}<details class="detail-panel" id="report-errors">{{if .HiddenProfiles}}<summary class="fail">当前展示范围的未通过检查</summary>{{range .Scenarios}}{{if or .Failures .Error}}<p class="fail">{{scenarioName .ID}} · 客户端并发 {{.EffectiveConcurrency}} · 失败执行 {{.Failures}}{{if .Error}}：{{.Error}}{{end}}</p>{{end}}{{end}}<p>完整原始运行的错误记录见 <a href="report.json">原始 JSON</a>。</p>{{else}}<summary class="fail">{{if eq .MeasurementMode "observe"}}运行错误{{else}}错误与未通过断言{{end}} · {{len .Errors}} 条记录</summary>{{range .Errors}}<p class="fail">{{.}}</p>{{end}}{{end}}</details>{{end}}
-<details class="detail-panel measurement-details"><summary>运行参数、数据准备与测量身份</summary><p>数据集：{{.DisplayName}}<br>原始标识：<code>{{.Dataset}}</code><br>MO 版本：<code>{{.MatrixOneVersion}}</code><br>工具版本：<code>{{.ToolVersion}}</code><br>工具 SHA-256：<code>{{.BinarySHA256}}</code><br>数据清单 SHA-256：<code>{{.ManifestSHA256}}</code><br>测试库：<code>{{.Database}}</code>（{{.Cleanup}}）<br>资源指标：{{.ResourceMetrics}}</p><!-- profile --><h3>数据准备</h3><table><tr><th>阶段</th><th>秒</th><th>行数</th><th>错误</th></tr>{{range .Stages}}<tr><td>{{.Name}}</td><td>{{printf "%.2f" .Seconds}}</td><td>{{.Rows}}</td><td>{{.Error}}</td></tr>{{end}}</table>{{if .IndexSQL}}<h3>实测索引配置</h3>{{range .IndexSQL}}<pre>{{.}}</pre>{{end}}{{end}}<h3>输入文件</h3><table><tr><th>文件</th><th>SHA-256</th><th>预期行数</th></tr>{{range .Inputs}}<tr><td>{{.Path}}</td><td><code>{{.SHA256}}</code></td><td>{{.Rows}}</td></tr>{{end}}</table></details>
+<details class="detail-panel measurement-details"><summary>运行参数、数据准备与测量身份</summary><p>数据集：{{.DisplayName}}<br>{{if legacyName .Dataset}}显示标识{{else}}原始标识{{end}}：<code>{{.Dataset}}</code><br>MO 版本：<code>{{.MatrixOneVersion}}</code><br>工具版本：<code>{{.ToolVersion}}</code><br>工具 SHA-256：<code>{{.BinarySHA256}}</code><br>数据清单 SHA-256：<code>{{.ManifestSHA256}}</code><br>测试库：<code>{{.Database}}</code>（{{.Cleanup}}）<br>资源指标：{{.ResourceMetrics}}</p><!-- profile --><h3>数据准备</h3><table><tr><th>阶段</th><th>秒</th><th>行数</th><th>错误</th></tr>{{range .Stages}}<tr><td>{{.Name}}</td><td>{{printf "%.2f" .Seconds}}</td><td>{{.Rows}}</td><td>{{.Error}}</td></tr>{{end}}</table>{{if .IndexSQL}}<h3>实测索引配置</h3>{{range .IndexSQL}}<pre>{{.}}</pre>{{end}}{{end}}<h3>输入文件</h3><table><tr><th>文件</th><th>SHA-256</th><th>预期行数</th></tr>{{range .Inputs}}<tr><td>{{.Path}}</td><td><code>{{.SHA256}}</code></td><td>{{.Rows}}</td></tr>{{end}}</table></details>
+<!-- report-notes -->
 <p class="chart-note">逐查询 ID、返回结果、SQL、执行计划和校验值见 <a href="report.json">report.json</a>。图表由保存的原始记录生成，无外部请求。展示版本：<code>{{.RendererVersion}}</code>。</p></section>
 <section id="report-environment" role="tabpanel" aria-labelledby="tab-environment" data-report-panel><!-- environment-tab --></section>
 <!-- report-tabs-script --></main></body></html>`
@@ -136,13 +138,21 @@ func renderSelectedReportHTML(w io.Writer, report Report, selection reportSelect
 	body = strings.Replace(body, "<!-- concurrency -->", concurrencyHTML, 1)
 	body = strings.ReplaceAll(body, "<!-- latency -->", latencyHTML)
 	body = strings.Replace(body, "<!-- profile -->", profileHTML, 1)
+	if hasESReferenceNotes(report) {
+		body = strings.Replace(body, "<!-- report-notes -->", esReferenceNotesHTML, 1)
+	}
 	body += matrixHTML
 
-	t, err := template.New("report").Funcs(template.FuncMap{"scenarioName": scenarioDisplayName, "stabilitySummary": stabilityChangeSummary}).Parse(body)
+	t, err := template.New("report").Funcs(template.FuncMap{"scenarioName": scenarioDisplayName, "stabilitySummary": stabilityChangeSummary, "legacyName": legacyApplicationName.MatchString}).Parse(body)
 	if err != nil {
 		return err
 	}
-	return t.Execute(w, view)
+	var rendered bytes.Buffer
+	if err := t.Execute(&rendered, view); err != nil {
+		return err
+	}
+	_, err = io.WriteString(w, neutralApplicationHTML(rendered.String()))
+	return err
 }
 
 func renderSavedReport(dir string, levels ...int) error {

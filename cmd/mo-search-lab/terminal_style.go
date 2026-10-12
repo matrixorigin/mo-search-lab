@@ -59,7 +59,11 @@ func (m *terminalModel) dividerRow() terminalRow {
 }
 
 func (m *terminalModel) renderRow(row terminalRow) string {
-	text := terminalClip(row.Text, m.width)
+	text := row.Text
+	if m.launcher == nil && m.task == nil && m.deletion == nil {
+		text = neutralApplicationText(text)
+	}
+	text = terminalClip(text, m.width)
 	if !m.color {
 		return text
 	}
@@ -206,7 +210,7 @@ func terminalKV(label, value string, width int) []string {
 func terminalSection(title string) []string { return []string{"", title, ""} }
 
 func terminalReportHeading(text string) bool {
-	for _, prefix := range []string{"P90 延迟", "P95 延迟", "P99 延迟", "成功查询吞吐", "检索质量", "版本与部署", "节点与缓存", "Metadata 缓存", "检索参数", "资源监控", "诊断详情", "测量 SQL", "向量 SQL", "全文 SQL", "会话设置", "索引定义", "场景 SHA", "查询 SHA", "逻辑/物理执行计划", "物理计划", "全文计划", "运行身份与输入记录", "配置差异", "采集缺失", "原始错误", "指标说明"} {
+	for _, prefix := range []string{"P90 延迟", "P95 延迟", "P99 延迟", "成功查询吞吐", "检索质量", "版本与部署", "节点与缓存", "Metadata 缓存", "检索参数", "资源监控", "诊断详情", "测量 SQL", "向量 SQL", "全文 SQL", "会话设置", "索引定义", "场景 SHA", "查询 SHA", "逻辑/物理执行计划", "物理计划", "全文计划", "运行身份与输入记录", "配置差异", "采集缺失", "原始错误", "指标说明", "备注", "测试条件", "性能结果", "环境基础配置", "记录来源"} {
 		if strings.HasPrefix(text, prefix) {
 			return true
 		}
@@ -220,7 +224,7 @@ func (m *terminalModel) reportFooter() []terminalRow {
 		primary = "  d 历史运行  ←→ 切报告  l 新任务  q 退出"
 	}
 	if m.width >= 105 {
-		primary = "  d 历史运行  ←→ 切报告  Tab 切页  1..6 直达  l 新任务  ? 说明  q 退出"
+		primary = "  d 历史运行  ←→ 切报告  Tab 切页  1..7 直达  l 新任务  ? 说明  q 退出"
 	}
 	if m.batch != nil {
 		if m.width >= 105 {
@@ -239,7 +243,9 @@ func (m *terminalModel) reportFooter() []terminalRow {
 		context = "  ↑↓ 滚动  n/b SQL 场景"
 	case 5:
 		context = "  ↑↓ 滚动  e 诊断详情"
-	case 6:
+	case terminalNotesSection:
+		context = "  ↑↓ 滚动  ? 指标说明"
+	case terminalHelpSection:
 		context = "  ↑↓ 滚动  ? 返回报告"
 	}
 	if m.width >= 70 && m.width < 105 {

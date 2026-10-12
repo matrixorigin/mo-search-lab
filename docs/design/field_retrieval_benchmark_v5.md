@@ -1,8 +1,8 @@
-# Field retrieval benchmark v5: anli-shaped T2Ranking comparison
+# Field retrieval benchmark v5: application-tokenized T2Ranking comparison
 
 ## Scope and design decision (2026-10-06)
 
-The user approved an anli-shaped fulltext scenario and requested an explanation
+The user approved an application-tokenized fulltext scenario and requested an explanation
 for the existing T2Ranking result. Work stays in the isolated
 `codex/mo-retrieval-bench` worktree at base
 `1f6b6d17c0e7c2ff7981be9a2f85fa9ec3a83650`. Existing local runner/report changes
@@ -33,7 +33,7 @@ Four ordinary scenarios share one corpus/index and top_k=100:
 
 1. Original sentence, canonical WHERE/MATCH/ORDER/LIMIT, pinned TF-IDF.
 2. Application tokens, otherwise identical SQL and TF-IDF: isolate input.
-3. Application tokens with anli's nested candidate LIMIT (100x), permission and
+3. Application tokens with the application’s nested candidate LIMIT (100x), permission and
    deletion filter, score/time/ID ordering, final LIMIT and post-limit score
    cutoff (>0.01), pinned TF-IDF: isolate SQL shape.
 4. Same application SQL and tokens, pinned BM25: isolate scoring choice.
@@ -41,7 +41,7 @@ Four ordinary scenarios share one corpus/index and top_k=100:
 Keep the first ten historical query IDs, corpus and subset relevance labels for
 the first controlled run. Use clients 1/4/8, ten repetitions and warmup; label
 the repeated ten-query sample rather than imply a broad official benchmark.
-The two anli SQL variants also get independent five-query/30-repeat multiset
+The two application SQL variants also get independent five-query/30-repeat multiset
 checks. Variable hit counts are permitted (maximum 100); quality/empty-result
 metrics remain separate so consistently empty output is never presented as a
 healthy retrieval result. The existing runner owns bounds, fresh session SETs,
@@ -116,9 +116,9 @@ outcomes rather than prerequisites for a successful tool execution.
 - Independent qrels computation reproduces every ordinary score and both
   Top-10/Top-100 means. The original-sentence/TF-IDF mean nDCG@10 is 0.100 and
   nine inputs are empty; changing only input to application tokens makes all
-  ten nonempty and mean nDCG@10 0.571871 (nDCG@100 0.592281). The nested anli
+  ten nonempty and mean nDCG@10 0.571871 (nDCG@100 0.592281). The nested application
   TF-IDF SQL has the same judged means; BM25 gives 0.422449 / 0.490032.
-- A real health finding is retained: nested anli TF-IDF query 4 has 17 distinct
+- A real health finding is retained: nested application TF-IDF query 4 has 17 distinct
   hundred-ID multisets over thirty repeats; twenty-four differ from the first,
   minimum overlap 0.96, maximum four replaced IDs. All five BM25 repeated checks
   have one multiset. Independent Counter-based checks reproduce the stability

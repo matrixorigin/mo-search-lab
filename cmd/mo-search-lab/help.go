@@ -51,7 +51,8 @@ var commandHelp = map[string]string{
 报告按键：
   d            选择历史 run；↑↓ 选择，Enter 打开，Esc 返回
   ←/→          切换该 run 内的测试报告
-  Tab/Shift-Tab 切换报告页；1..6 直达概览、并发、质量、稳定性、SQL、环境
+  Tab/Shift-Tab 切换报告页；1..7 直达概览、并发、质量、稳定性、SQL、环境、备注
+  7            T2Ranking 报告查看 ES 历史实测与环境基础配置
   l / t        启动新任务 / 返回本次测试结果
   p / c        概览或并发页切分位数 / 并发或质量页筛选并发
   ? / q        指标说明 / 退出；任务运行中 Esc/Ctrl-C 取消并等待清理

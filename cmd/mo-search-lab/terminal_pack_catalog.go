@@ -85,18 +85,18 @@ func describeTerminalPack(p *terminalPack, m manifest) {
 		p.Featured, p.rank = true, 1
 	case p.Dataset == "t2ranking_anli_2303643_ngram_v3":
 		p.Name, p.Scale = "全文检索评测", "T2Ranking · 2,303,643 中文段落 · 500 条查询"
-		p.Summary = "anli 查询方式，ngram 索引；测相关性、延迟、并发和重复稳定性。"
+		p.Summary = "应用分词查询方式，ngram 索引；测相关性、延迟、并发和重复稳定性。"
 		p.Featured, p.rank = true, 2
 	case p.Dataset == "gist_t2_sql_workload_v7":
 		p.Name, p.Scale = "两路同时查询", "100 万向量 + 230 万段落"
 		p.Summary = "复用 GIST/T2 数据；向量与全文 SQL 同时执行，观察两路延迟和吞吐。"
 		p.Featured, p.rank = true, 3
 	case strings.HasPrefix(p.Dataset, "t2ranking_anli_"):
-		p.Name = "全文检索 · anli"
+		p.Name = "全文检索 · 应用分词"
 		if strings.Contains(p.Dataset, "gojieba") {
 			p.Name = "全文检索 · gojieba"
 		}
-		p.Summary = "anli 查询方式的全文对比或历史版本；具体身份见下方数据包目录。"
+		p.Summary = "应用分词查询方式的全文对比或历史版本；具体身份见下方数据包目录。"
 	case strings.HasPrefix(p.Dataset, "t2ranking_"):
 		p.Name, p.Summary = "全文原始查询实验", "T2Ranking 原始查询形态的实验或历史版本。"
 	case strings.HasPrefix(p.Dataset, "gist1m_subset"):

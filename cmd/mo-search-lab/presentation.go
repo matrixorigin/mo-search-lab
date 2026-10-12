@@ -26,9 +26,9 @@ func datasetDisplayName(id, name string) string {
 		return "T2Ranking · 全文检索评测"
 	case strings.HasPrefix(id, "t2ranking_anli_"):
 		if strings.Contains(id, "gojieba") {
-			return "T2Ranking · anli 全文检索（jieba）"
+			return "T2Ranking · 应用分词全文检索（jieba）"
 		}
-		return "T2Ranking · anli 全文检索"
+		return "T2Ranking · 应用分词全文检索"
 	case strings.HasPrefix(id, "t2ranking_"):
 		return "T2Ranking · 原始查询实验"
 	case strings.HasPrefix(id, "gist1m_subset"):

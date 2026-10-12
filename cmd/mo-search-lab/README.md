@@ -82,7 +82,7 @@ This command atomically replaces only `report.html`; `report.json` and its origi
 
 The bundled eight-row pack is **only a runner smoke fixture**, not customer performance evidence. Its stability scenario requires at least three repetitions; the default independent `--stability-repeat 30` covers that requirement, regardless of ordinary `--repeat`. When opting into inheritance with `--stability-repeat 0`, choose `--repeat 3` or higher.
 
-The published datasets-v1 archive includes GIST1M filtered vectors, 2,303,643 T2Ranking passages with 500 frozen anli-shaped queries, and paired SQL using their shared CSVs. The separate GIST health Top-100 pack adds vector performance/recall measurements. T2Ranking semantic vector and hybrid packs still require separately prepared embeddings and exact vector truth; they are not part of that archive. The on-site host needs the executable, selected packs, and access to MatrixOne. Optional scoped Grafana/Prometheus queries are supported through `--monitoring-config`; unavailable resource metrics are explicit in the report.
+The published datasets-v1 archive includes GIST1M filtered vectors, 2,303,643 T2Ranking passages with 500 frozen application-tokenized queries, and paired SQL using their shared CSVs. The separate GIST health Top-100 pack adds vector performance/recall measurements. T2Ranking semantic vector and hybrid packs still require separately prepared embeddings and exact vector truth; they are not part of that archive. The on-site host needs the executable, selected packs, and access to MatrixOne. Optional scoped Grafana/Prometheus queries are supported through `--monitoring-config`; unavailable resource metrics are explicit in the report.
 
 ## Interactive terminal runner and report viewer
 
@@ -148,8 +148,8 @@ Viewing historical records still performs no SQL. `--plain` stays read-only;
 The history picker groups reports by invocation using `batch.json`, with the
 newest invocation first. A standalone report is shown as one invocation.
 Opening a report does not rerun SQL or change any original file. The dashboard
-has six pages: an initial concurrency-1 bar chart, concurrency latency/QPS,
-recall and relevance quality, repeat stability, SQL/plans, and environment.
+has seven pages: an initial concurrency-1 bar chart, concurrency latency/QPS,
+recall and relevance quality, repeat stability, SQL/plans, environment, and notes.
 Metric definitions open with `?`. The recorded overall execution status stays visible under
 profile selection; missing samples are shown as unavailable. Legacy records keep their original assertion status.
 
@@ -162,7 +162,7 @@ profile selection; missing samples are shown as unavailable. Legacy records keep
 | Left / Right | Previous / next dataset report in the selected invocation; preserve the current page. |
 | Tab / Shift-Tab | Next / previous page of the current report; preserve the report and filters. |
 | `r` | Compatibility alias for `d`; opens historical-run selection without changing the current run. |
-| `1`..`6` | Open a report page directly; metric help is separate and opens with `?`. |
+| `1`..`7` | Open a report page directly; `7` shows notes (T2Ranking includes historical ES results and host/container configuration). Metric help opens with `?`. |
 | `p` | Cycle P90 / P95 / P99 on overview or concurrency pages. |
 | `c` | Cycle all / measured concurrency levels on concurrency or quality pages. |
 | `n` / `b` | Next / previous scenario and profile on the SQL page. |
@@ -298,11 +298,11 @@ missing levels. Original JSON, identity, overall verdict and complete error
 records remain unchanged; the HTML labels the selected scope. Omit this render
 option to show the complete original run.
 
-## anli-shaped T2Ranking pilot
+## application-tokenized T2Ranking pilot
 
 The public dataset supplies text and relevance judgments; it does not require
 submitting an entire question as one Boolean search fragment. To compare the
-anli snapshot's input and SQL independently, prepare a new pack off site from
+the application snapshot's input and SQL independently, prepare a new pack off site from
 an existing T2Ranking pack:
 
 ```sh
@@ -311,7 +311,7 @@ an existing T2Ranking pack:
 python tools/prepare_anli_pack.py --base-pack /path/to/t2ranking-pilot \
   --tokenizer-dir /path/to/snapshot/rag_business/commons/utils/tokenizer \
   --top-k 100 --candidate-multiple 100 --stability-queries 5 \
-  --out /path/to/t2ranking-anli
+  --out /path/to/t2ranking-app
 ```
 
 The preparer preserves original query IDs and subset judgments, freezes original
@@ -326,12 +326,12 @@ customer-data, hybrid-fusion or reranking measurement. Customer parser and
 scoring configuration must be collected separately.
 
 ```sh
-./mo-search-lab validate --pack /path/to/t2ranking-anli
+./mo-search-lab validate --pack /path/to/t2ranking-app
 ./mo-search-lab run --host 127.0.0.1 --port 6001 --user root \
-  --pack /path/to/t2ranking-anli --repeat 10 --warmup 8 \
+  --pack /path/to/t2ranking-app --repeat 10 --warmup 8 \
   --concurrency-levels 1,4,8 --stability-query-limit 5 --stability-repeat 30 \
-  --timeout 30s --report-dir ./t2ranking-anli-report
-./mo-search-lab render --report-dir ./t2ranking-anli-report \
+  --timeout 30s --report-dir ./t2ranking-app-report
+./mo-search-lab render --report-dir ./t2ranking-app-report \
   --scenario-ids raw_sentence_tfidf,anli_tokens_tfidf,anli_sql_tfidf,anli_sql_bm25
 ```
 
@@ -347,9 +347,9 @@ are historical pack metadata; current runs observe scores without an acceptance 
 The scope and evidence are recorded in
 [design v5](../../docs/design/field_retrieval_benchmark_v5.md).
 
-## anli health matrix (schema 3)
+## Application-tokenized health matrix (schema 3)
 
-The main workload uses frozen anli query preprocessing and application-shaped
+The main workload uses frozen application query preprocessing and application-shaped
 fulltext SQL. Whole-sentence matching belongs to an independently judged
 functional pack, alongside OR, AND, quoted phrase and expected empty results.
 The application snapshot does not provide index DDL: ngram/gojieba and
@@ -362,11 +362,11 @@ python3 tools/prepare_public_pack.py t2ranking \
   --source-dir /data/T2Ranking --out /data/packs/t2-full-500 \
   --rows 2303643 --queries 503 --query-seed 20261006 --relevant-grade 2
 python3 tools/prepare_anli_pack.py --health --parser ngram \
-  --base-pack /data/packs/t2-full-500 --tokenizer-dir /data/anli/tokenizer \
-  --out /data/packs/anli-ngram --top-k 100 --stability-queries 5
+  --base-pack /data/packs/t2-full-500 --tokenizer-dir /data/app/tokenizer \
+  --out /data/packs/app-ngram --top-k 100 --stability-queries 5
 python3 tools/prepare_anli_pack.py --health --parser gojieba \
-  --base-pack /data/packs/t2-full-500 --tokenizer-dir /data/anli/tokenizer \
-  --out /data/packs/anli-gojieba --top-k 100 --stability-queries 5
+  --base-pack /data/packs/t2-full-500 --tokenizer-dir /data/app/tokenizer \
+  --out /data/packs/app-gojieba --top-k 100 --stability-queries 5
 python3 tools/prepare_fulltext_functional.py --out /data/packs/fulltext-functional
 ```
 
@@ -379,12 +379,12 @@ hashes. The first 503 candidates yield 500 searchable queries; 3 empty-token inp
 Run each parser pack sequentially against the same service:
 
 ```sh
-./mo-search-lab run --pack /data/packs/anli-ngram \
-  --host 127.0.0.1 --port 6001 --report-dir reports/anli-ngram \
+./mo-search-lab run --pack /data/packs/app-ngram \
+  --host 127.0.0.1 --port 6001 --report-dir reports/app-ngram \
   --concurrency-levels 1,4,8 --repeat 1 --warmup 5 \
   --stability-repeat 30 --stability-query-limit 5 --timeout 3m
-./mo-search-lab run --pack /data/packs/anli-gojieba \
-  --host 127.0.0.1 --port 6001 --report-dir reports/anli-gojieba \
+./mo-search-lab run --pack /data/packs/app-gojieba \
+  --host 127.0.0.1 --port 6001 --report-dir reports/app-gojieba \
   --concurrency-levels 1,4,8 --repeat 1 --warmup 5 \
   --stability-repeat 30 --stability-query-limit 5 --timeout 3m
 ./mo-search-lab run --pack /data/packs/fulltext-functional \
@@ -415,7 +415,7 @@ Schema 3 qrels options:
 Standalone reports separate execution, relevance and repeat stability. Current
 runs use execution errors for status and CLI exit code; historical raw records
 preserve their combined assertion status. Index SQL, metric options and per-execution quality metrics are saved in
-raw JSON. Observed low scores alone do not fail health. Current anli packs use
+raw JSON. Observed low scores alone do not fail health. Current application-tokenized packs use
 synthetic OPEN permissions/fixed timestamps, candidate limit and post-Top-K
 score cutoff 0.01; they measure the fulltext leg, not permission selectivity,
 detail fetching, fusion or reranking.
@@ -475,7 +475,7 @@ starts the next pair, so mixed QPS uses the common batch wall time and describes
 paired workload completion, not an independent route's maximum capacity.
 Oracle evaluation is outside timing for both isolated and mixed workload
 profiles. No client fusion or post-filter is performed. Different GIST/text
-tables represent general resource competition, not an anli same-table replay.
+tables represent general resource competition, not an application same-table replay.
 See `docs/design/field_retrieval_benchmark_v7.md` for bounds and evidence.
 
 Preparation example (offline, NumPy/threadpoolctl installed):
@@ -524,7 +524,7 @@ The default concurrency is 1 for every pack. Scripted runs opt into a sweep with
 
 `tools/benchmark_elasticsearch.py` is a standard-library experimental runner
 for a loopback Elasticsearch fixture. It imports the same frozen T2Ranking
-CSV and compares native CJK/BM25 `match` searches using anli tokens and raw
+CSV and compares native CJK/BM25 `match` searches using preprocessed tokens and raw
 questions. It preserves returned IDs, timings, input hashes, ES settings and
 repeat set/order observations. It creates an owned index and retains it for
 follow-up measurement; it never overwrites a saved run. This experiment adds
@@ -532,10 +532,10 @@ no dependency to the standalone MO field binary.
 
 ```sh
 python3 tools/benchmark_elasticsearch.py --endpoint http://127.0.0.1:19200 \
-  --pack /data/packs/anli-ngram --output reports/es-first
+  --pack /data/packs/app-ngram --output reports/es-first
 # Reuse the complete index named in es-first/report.json for a longer run:
 python3 tools/benchmark_elasticsearch.py --endpoint http://127.0.0.1:19200 \
-  --pack /data/packs/anli-ngram --index mo_retrieval_bench_es_INDEX_ID \
+  --pack /data/packs/app-ngram --index mo_retrieval_bench_es_INDEX_ID \
   --repeat 20 --output reports/es-longer
 ```
 

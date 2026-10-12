@@ -27,7 +27,7 @@ SQL/HTTP errors is an execution verdict, not a relevance acceptance claim.
 Use the official pinned Elasticsearch 9.5.4 image, single node, one primary
 shard, zero replicas, 8 CPU and 16 GiB container limit, explicit 8 GiB JVM heap.
 Use built-in CJK analysis and default BM25 (k1=1.2, b=.75). Measure both frozen
-anli token text and raw question text with `match`, operator OR. Search returns
+application-tokenized text and raw question text with `match`, operator OR. Search returns
 IDs with `_source:false`, `track_total_hits:false`, `_score DESC,id ASC`,
 `min_score:.01`, no highlighting/fetch/reranking. The original source is stored
 at index time. Disable request cache explicitly. Preserve native caches/page

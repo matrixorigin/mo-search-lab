@@ -15,8 +15,13 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-var terminalSections = []string{"overview", "concurrency", "quality", "stability", "sql", "environment", "help"}
-var terminalSectionTitles = []string{"概览", "并发", "质量", "稳定性", "SQL", "环境", "指标说明"}
+const (
+	terminalNotesSection = 6
+	terminalHelpSection  = 7
+)
+
+var terminalSections = []string{"overview", "concurrency", "quality", "stability", "sql", "environment", "notes", "help"}
+var terminalSectionTitles = []string{"概览", "并发", "质量", "稳定性", "SQL", "环境", "备注", "指标说明"}
 
 // Never allow SQL, errors, paths or dataset names to inject terminal controls.
 func terminalText(s string) string {
@@ -298,7 +303,11 @@ func (m *terminalModel) sqlLines() []string {
 	if s == nil {
 		return []string{"没有场景。"}
 	}
-	lines := []string{fmt.Sprintf("场景 %s / C%d / %s / %s", scenarioDisplayName(s.ID), s.EffectiveConcurrency, s.Route, s.Oracle), "n / b 切换场景；此页不受 c 键筛选。", "", "原始场景标识: " + s.ID, "", "测量 SQL", s.SQL}
+	identityLabel := "原始场景标识: "
+	if legacyApplicationName.MatchString(s.ID) {
+		identityLabel = "场景标识（显示别名）: "
+	}
+	lines := []string{fmt.Sprintf("场景 %s / C%d / %s / %s", scenarioDisplayName(s.ID), s.EffectiveConcurrency, s.Route, s.Oracle), "n / b 切换场景；此页不受 c 键筛选。", "", identityLabel + s.ID, "", "测量 SQL", s.SQL}
 	if s.VectorSQL != "" {
 		lines = append(lines, "向量 SQL", s.VectorSQL, "全文 SQL", s.FulltextSQL)
 	}
@@ -408,7 +417,7 @@ func (m *terminalModel) environmentLines() []string {
 		if r.RunKind != "environment_inspection" {
 			profile, _ := json.MarshalIndent(r.Profile, "", "  ")
 			lines = append(lines, "", "运行身份与输入记录", "工具版本: "+r.ToolVersion, "二进制 SHA256: "+r.BinarySHA256)
-			lines = append(lines, "数据集: "+r.DisplayName(), "原始标识: "+r.Dataset)
+			lines = append(lines, "数据集: "+r.DisplayName(), "数据集标识（展示）: "+r.Dataset)
 			lines = append(lines, "数据清单 SHA256: "+r.ManifestSHA256, "测试库: "+r.Database+" / "+r.Cleanup, "测量参数", string(profile))
 			for _, stage := range r.Stages {
 				lines = append(lines, fmt.Sprintf("%s: %.3f s / %d 行 / %s", stage.Name, stage.Seconds, stage.Rows, stage.Error))
@@ -460,6 +469,6 @@ MRR 关注第一个答案；nDCG 同时关注多个答案的等级和排序。
 
 操作：d 选择历史运行，↑↓ 选择、Enter 打开、Esc 返回；
 ←/→ 切换本次运行内的报告；Tab/Shift-Tab 切换报告页；
-1..6 直达，? 打开指标说明；
+1..7 直达，7 查看备注（T2Ranking 报告含 ES 历史实测），? 打开指标说明；
 概览/并发页按 p 切换分位数；并发/质量页按 c 筛选已测并发；
 SQL 页按 n/b 切场景；环境页按 e 展开详情；↑↓ 滚动；q 退出。`

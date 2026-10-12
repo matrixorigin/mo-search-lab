@@ -51,9 +51,9 @@ func TestPageKeysNeverChangeReportOrResetItsFilters(t *testing.T) {
 		page int
 	}{
 		{"tab", 1}, {"shift+tab", 0},
-		{"6", 5}, {"tab", 0}, {"shift+tab", 5},
+		{"6", 5}, {"tab", 6}, {"tab", 0}, {"shift+tab", 6},
 		{"1", 0}, {"2", 1}, {"3", 2}, {"4", 3}, {"5", 4}, {"6", 5},
-		{"?", 6}, {"?", 5}, {"?", 6}, {"tab", 0},
+		{"7", 6}, {"?", terminalHelpSection}, {"?", 6}, {"?", terminalHelpSection}, {"tab", 0},
 	} {
 		m.scroll = 7
 		terminalKey(m, step.key)

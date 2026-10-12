@@ -56,7 +56,7 @@ func runTerminalUI(args []string) error {
 	root := fs.String("reports", "", "浏览和保存运行的报告根目录；省略时扫描当前目录，新任务写入 reports")
 	single := fs.String("report-dir", "", "打开单份报告或整次运行目录；按 batch.json 包含同次运行的报告")
 	dataset := fs.String("dataset", "", "初始数据集 ID，使用 report.json 中的原始 dataset，不是显示名称")
-	section := fs.String("section", "overview", "初始页面：overview, concurrency, quality, stability, sql, environment, help")
+	section := fs.String("section", "overview", "初始页面：overview, concurrency, quality, stability, sql, environment, notes, help")
 	plain := fs.Bool("plain", false, "只读输出所选页面，不进入交互界面或启动测试")
 	environmentDetails := fs.Bool("environment-details", false, "环境页展开配置差异、异常节点和采集失败")
 	percentile := fs.Int("percentile", 95, "报告延迟分位数：90, 95, 99")
@@ -240,7 +240,7 @@ func (m *terminalModel) openReportChooser() {
 }
 
 // Page navigation stays within the current report and keeps its view filters.
-// Metric help is opened explicitly with ?, rather than as a seventh report page.
+// Metric help is opened explicitly with ? and is outside the page cycle.
 func (m *terminalModel) moveReportPage(delta int) {
 	pages := len(terminalSections) - 1
 	page := m.section
@@ -352,13 +352,13 @@ func (m *terminalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.environmentDetails = !m.environmentDetails
 				m.scroll = 0
 			}
-		case "1", "2", "3", "4", "5", "6":
+		case "1", "2", "3", "4", "5", "6", "7":
 			m.section, m.scroll = int(key[0]-'1'), 0
 		case "?":
-			if m.section == 6 {
+			if m.section == terminalHelpSection {
 				m.section = m.previous
 			} else {
-				m.previous, m.section = m.section, 6
+				m.previous, m.section = m.section, terminalHelpSection
 			}
 			m.scroll = 0
 		case "p":
@@ -418,7 +418,7 @@ func (m *terminalModel) headerLines() []string {
 	rows := m.reportHeaderRows()
 	lines := make([]string, len(rows))
 	for i, row := range rows {
-		lines[i] = terminalClip(row.Text, m.width)
+		lines[i] = terminalClip(neutralApplicationText(row.Text), m.width)
 	}
 	return lines
 }
@@ -451,7 +451,7 @@ func (m *terminalModel) reportHeaderRows() []terminalRow {
 	tabs := make([]string, 0, len(terminalSectionTitles))
 	for i, title := range terminalSectionTitles {
 		label := fmt.Sprintf("%d %s", i+1, title)
-		if i == 6 {
+		if i == terminalHelpSection {
 			label = "? " + title
 		}
 		if i == m.section {
@@ -533,13 +533,15 @@ func (m *terminalModel) contentLines() []string {
 				content = append(content, "", "跳过的报告")
 				content = append(content, m.warnings...)
 			}
-		case 6:
+		case terminalNotesSection:
+			content = m.notesLines()
+		case terminalHelpSection:
 			content = []string{terminalMetricHelp}
 		}
 	}
 	var lines []string
 	for _, block := range content {
-		for _, line := range terminalWrap(block, m.textWidth()) {
+		for _, line := range terminalWrap(neutralApplicationText(block), m.textWidth()) {
 			lines = append(lines, "  "+line)
 		}
 	}

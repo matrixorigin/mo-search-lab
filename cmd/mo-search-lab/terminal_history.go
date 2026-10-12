@@ -146,7 +146,7 @@ func (m *terminalModel) chooseHistory(index int) {
 		}
 	}
 	m.dataset, m.run, m.chooser = choice.Dataset, choice.Run, false
-	if m.section == 6 {
+	if m.section == terminalHelpSection {
 		m.section = m.previous
 	}
 	m.load()

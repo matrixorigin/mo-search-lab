@@ -1,4 +1,4 @@
-# Field retrieval benchmark v6 — anli workload and independent verdicts
+# Field retrieval benchmark v6 — application workload and independent verdicts
 
 ## Design-first decision (2026-10-06)
 
@@ -16,7 +16,7 @@ Design review: PASS before implementation; no outstanding blocking decisions.
 
 The v5 100k/10-query pilot used ngram, tested a strict whole-sentence negative
 control using a relevance acceptance threshold, and used exponential nDCG gains.
-The anli snapshot tokenizes questions before sending Boolean SQL, but contains
+The application snapshot tokenizes questions before sending Boolean SQL, but contains
 no fulltext index DDL. Its actual deployed parser/algorithm is unknown.
 
 Every displayed claim must identify data, query selection, parser, algorithm,
@@ -40,7 +40,7 @@ their scoring semantics and bytes.
    Runtime remains a standalone SQL client; neither tokenizer nor model is shipped
    as a runtime dependency. An entirely empty searchable cohort fails preparation.
 3. Produce paired immutable ngram/gojieba packs sharing the CSV and query IDs.
-   Each pack contains anli SQL/TF-IDF and anli SQL/BM25, independent load checks,
+   Each pack contains application SQL/TF-IDF and application SQL/BM25, independent load checks,
    and five query inputs for 30 sequential repetitions with order checks enabled.
    The four comparisons change only parser or scoring algorithm.
 4. Run client concurrency 1/4/8 with 500 different inputs per cell, one measured

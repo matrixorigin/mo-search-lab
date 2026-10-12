@@ -125,13 +125,14 @@ func TestTerminalMeasurementsAndEscaping(t *testing.T) {
 		t.Fatal(err)
 	}
 	for page, wanted := range map[int][]string{
-		0: {"P95 延迟", "20.000", "暂无成功样本", "0.000"},
-		1: {"向量检索 / C4", "80.000", "向量检索 / C8", "160.000", "成功查询吞吐"},
-		2: {"Recall@100", "0.375", "平均返回 1.00", "nDCG@10", "0.200", "0.400", "0.600", "0.500"},
-		3: {"●!×·", "集合 1 种，顺序 2 种", "失败 2/3"},
-		4: {"SELECT id FROM vectors", "LIMIT 100", "fixed-queries"},
-		5: {"版本与部署", "节点与缓存", "资源监控 · 未采集", "未提供", "--environment-details"},
-		6: {"MRR@10", "排名倒数", "最多 2C 条 SQL"},
+		0:                   {"P95 延迟", "20.000", "暂无成功样本", "0.000"},
+		1:                   {"向量检索 / C4", "80.000", "向量检索 / C8", "160.000", "成功查询吞吐"},
+		2:                   {"Recall@100", "0.375", "平均返回 1.00", "nDCG@10", "0.200", "0.400", "0.600", "0.500"},
+		3:                   {"●!×·", "集合 1 种，顺序 2 种", "失败 2/3"},
+		4:                   {"SELECT id FROM vectors", "LIMIT 100", "fixed-queries"},
+		5:                   {"版本与部署", "节点与缓存", "资源监控 · 未采集", "未提供", "--environment-details"},
+		6:                   {"备注", "暂无补充备注"},
+		terminalHelpSection: {"MRR@10", "排名倒数", "最多 2C 条 SQL"},
 	} {
 		m.section = page
 		var body bytes.Buffer

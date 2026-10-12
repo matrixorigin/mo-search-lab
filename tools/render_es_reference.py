@@ -7,6 +7,7 @@ import json
 import math
 import os
 from pathlib import Path
+from presentation import neutral_application_page
 import tempfile
 
 from render_t2_health_portal import quality_metric_help
@@ -33,7 +34,7 @@ def measured_series(root, es_folder):
     if definition['mappings']['properties']['body'] != {'type': 'text', 'analyzer': 'cjk', 'similarity': 'BM25'}:
         raise ValueError('ES chart labels must identify the measured CJK/BM25 configuration')
     stable_scenes = []
-    for field, label in [('anli_text', 'anli 搜索词'), ('raw_text', '原始问题')]:
+    for field, label in [('anli_text', '预处理搜索词'), ('raw_text', '原始问题')]:
         profiles = sorted((s for s in es['scenarios'] if s['id'] == f'es_cjk_{field}'), key=lambda s: s['effective_concurrency'])
         if [s['effective_concurrency'] for s in profiles] != [1, 4, 8]:
             raise ValueError('ES requires exactly one measured profile for levels 1/4/8')
@@ -111,7 +112,7 @@ def render(root, es_folder):
     first_run = 't2ranking-es-cjk-full-500q-20261006'
     first_link = f'<a href="../{first_run}/report.json" download>首次 500 次短时测量原始记录</a>' if (root / first_run / 'report.json').is_file() else ''
     index_settings = html.escape(json.dumps(es['index_definition'], ensure_ascii=False, indent=2))
-    return '''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T2Ranking · ES 本机实测记录</title><style>
+    body = '''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T2Ranking · ES 本机实测记录</title><style>
 *{box-sizing:border-box}body{margin:0;background:#f3f5f6;color:#213442;font-family:ui-sans-serif,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.55}main{max-width:1280px;margin:auto;padding:34px 24px 64px}h1{font-size:34px;letter-spacing:-.025em;line-height:1.2;margin:12px 0}.tail{display:inline-block}.eyebrow{color:#687b86;font:12px ui-monospace,monospace;letter-spacing:.12em}.lead{max-width:85ch}.meta,.note,small{color:#617481;font-size:13px}.navigation,.controls{display:flex;gap:12px 22px;align-items:center;flex-wrap:wrap;margin:22px 0}.navigation{border-left:3px solid #193b55;background:#fff;padding:14px 18px}a{color:#08677c}select{font:inherit;font-size:14px;padding:8px 12px;border:1px solid #b8c8d1;border-radius:4px;background:white;color:#213442}select:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #087f8c;outline-offset:3px}.legend{display:flex;flex-wrap:wrap;gap:9px 22px;margin:18px 0;font-size:13px}.legend span{display:flex;align-items:center;gap:7px}.legend i{height:10px;width:10px;border-radius:2px}.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.card{background:#fff;padding:20px;border:1px solid #dbe3e8;border-radius:6px;margin:12px 0}h2{font-size:21px;margin:0 0 7px}h3{font-size:16px;margin:0 0 16px}.plot{display:block;width:100%;min-width:260px}.plot text{fill:#60717d;font:17px ui-monospace,monospace}.plot .label{font-size:14px}.control{margin:14px 0}.chart-head{min-height:118px}.details{padding:15px 18px;margin:18px 0;border:1px solid #d1dce3;border-radius:6px;background:#fff}.details summary{cursor:pointer;font-size:14px;font-weight:600}.scroll{overflow-x:auto;margin-top:14px}table{border-collapse:collapse;white-space:nowrap;font-size:13px;width:100%}th,td{padding:10px 14px;border-bottom:1px solid #e2e9ed;text-align:right}th:first-child,td:first-child{text-align:left}pre{font:13px ui-monospace,monospace;background:#f3f6f7;padding:16px;overflow:auto}.repeat{display:grid;grid-template-columns:1fr 1fr;gap:18px}.repeat-row{display:grid;grid-template-columns:65px minmax(0,1fr);gap:7px 10px;margin:12px 0;font-size:12px}.repeat-row small{grid-column:2;font-size:11px}.samples{display:grid;grid-template-columns:repeat(30,minmax(0,1fr));gap:3px;align-items:center}.sample{height:16px;border-radius:2px}.ok{background:#168772}.bad{background:#c04642}.links{display:flex;gap:10px 22px;flex-wrap:wrap;margin-top:22px;font-size:13px}.scope{max-width:100ch}.configuration-table{white-space:normal;table-layout:fixed}.configuration-table th{width:30%}.configuration-table td{text-align:left;overflow-wrap:anywhere}.status{border-left:3px solid #168772;padding:9px 18px;font-size:14px;margin:22px 0}
 @media(max-width:1000px){.charts{grid-template-columns:1fr}.chart-head{min-height:0}.repeat{grid-template-columns:1fr}}@media(max-width:600px){main{padding:24px 16px}h1{font-size:28px}.navigation{align-items:flex-start}.card{padding:16px}.controls label{width:100%}.repeat-row{grid-template-columns:55px minmax(0,1fr)}.samples{gap:2px}.sample{height:14px}}
 </style></head><body><main><header><span class="eyebrow">T2RANKING / ELASTICSEARCH REFERENCE</span><h1>Elasticsearch：<span class="tail">本机实测记录</span></h1><p class="lead">保存本机公开数据集上的 ES 实测数据、机器配置和查询设置，供后续查阅。客户现场检测报告记录当地服务的表现。</p><p class="meta">''' + f"{es['indexed_rows']:,}" + ''' 段文本 · 500 个固定问题 · Top-100 · ES ''' + version + ''' · CJK / BM25</p><p class="meta">主机：''' + html.escape(host['cpu_model']) + f" · {host['physical_cores']} 核 / {host['logical_cpus']} 线程 · {host['memory_total_bytes']/1024**3:.2f} GiB 内存" + '''</p></header>
@@ -126,7 +127,7 @@ def render(root, es_folder):
 <details class="details"><summary>检索质量完整数值 · 并发 1</summary><div class="scroll"><table><tr><th>配置</th><th>nDCG@10</th><th>nDCG@100</th><th>Recall@100</th><th>MRR@10</th><th>空结果</th></tr>''' + quality_rows + '''</table></div></details>
 <details class="details"><summary>吞吐与延迟完整数值</summary><div class="scroll"><table><tr><th>配置</th><th>并发</th><th>QPS</th><th>P90 ms</th><th>P95 ms</th><th>P99 ms</th></tr>''' + performance_rows + '''</table></div></details>
 <section><h2>ES 重复结果检查</h2><p class="note">每条路线 5 个问题 × 30 次；同时核对集合和顺序。每个方块是一次实际查询。</p><div class="status">300 次查询完成 · ''' + ('集合和顺序未发现变化' if not changed else f'{changed} 次检查发现变化') + '''</div><div class="repeat">''' + stability + '''</div></section>
-<details class="details scope"><summary>测量范围与查询设置</summary><p>使用原生 match OR，在内置 CJK 分词、BM25 上分别输入 anli 搜索词与原始问题；最多返回 100 个 ID，低分阈值为 0.01。本次记录不包含正文读取、真实权限过滤、向量融合或精排。</p><p>导入后刷新并等待活动合并结束，未强制合并；保留正常页缓存，显式关闭请求缓存。磁盘写保护采用剩余 15 / 10 / 5 GiB 阈值。质量使用线性 nDCG 和等级 ≥2 的 Recall/MRR，未标注文档按零收益计算；这里只观察成绩，不设验收线。重复检查来自单节点样本。</p><h3>实际 ES 请求模板</h3><pre>POST /&lt;owned-index&gt;/_search?request_cache=false&amp;allow_partial_search_results=false
+<details class="details scope"><summary>测量范围与查询设置</summary><p>使用原生 match OR，在内置 CJK 分词、BM25 上分别输入 预处理搜索词与原始问题；最多返回 100 个 ID，低分阈值为 0.01。本次记录不包含正文读取、真实权限过滤、向量融合或精排。</p><p>导入后刷新并等待活动合并结束，未强制合并；保留正常页缓存，显式关闭请求缓存。磁盘写保护采用剩余 15 / 10 / 5 GiB 阈值。质量使用线性 nDCG 和等级 ≥2 的 Recall/MRR，未标注文档按零收益计算；这里只观察成绩，不设验收线。重复检查来自单节点样本。</p><h3>实际 ES 请求模板</h3><pre>POST /&lt;owned-index&gt;/_search?request_cache=false&amp;allow_partial_search_results=false
 ''' + query_template + '''</pre><h3>索引创建配置</h3><pre>''' + index_settings + '''</pre><p><a href="https://www.elastic.co/docs/reference/text-analysis/analysis-lang-analyzer">ES CJK 分词</a> · <a href="https://www.elastic.co/docs/reference/elasticsearch/index-settings/similarity">BM25 默认配置</a> · <a href="https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-match-query">match 查询</a></p></details>
 <div class="links"><a href="../''' + es_folder + '/' + raw_file + '''" download>ES 原始记录（下载）</a><a href="../''' + es_folder + '''/query-inputs.jsonl">500 条冻结查询与标注</a><a href="../''' + es_folder + '''/host-configuration.json">主机硬件与系统记录</a><a href="../''' + es_folder + '''/environment.json">ES 部署与资源配置</a><a href="../''' + es_folder + '''/verification.json">指标独立复算</a>''' + first_link + '''</div>
 <script id="measured-series" type="application/json">''' + payload + '''</script><script>
@@ -140,6 +141,7 @@ function draw(){const items=selected();document.getElementById('legend').innerHT
 for(const id of ['quality-metric','latency-metric'])document.getElementById(id).addEventListener('change',draw);draw();
 </script></main></body></html>'''
 
+    return neutral_application_page(body)
 
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(description=__doc__)

@@ -88,7 +88,7 @@ Local checks passed on 2026-10-07:
   profiles, 51 successful measured SQL executions, zero SQL/assertion failures.
   `SHOW DATABASES` independently confirmed removal of the generated test DB.
   The smoke report also opens through `ui --plain`.
-- Existing GIST filtered, T2Ranking anli and paired SQL workload reports open
+- Existing GIST filtered, T2Ranking application-tokenized and paired SQL workload reports open
   through the extracted executable. All 41 recorded historical input hashes
   are unchanged. Original MatrixOne checkout/worktree statuses and all 64
   copied source-file hashes remain unchanged.

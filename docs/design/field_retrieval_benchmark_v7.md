@@ -47,7 +47,7 @@ loaded data/indexes. At concurrency C, C client workers each issue both SQLs
 concurrently, wait for both, then admit their next job. Maximum SQL concurrency
 is 2C. The two input sequences are paired by deterministic ordinal; they do not
 need common query IDs or document IDs. This represents generic shared-resource
-competition across GIST and text tables, not an anli same-table reproduction.
+competition across GIST and text tables, not an application same-table reproduction.
 
 Each worker owns two pinned sessions, initializes the respective SET statements
 once and closes every session after all its workers terminate. Preparation,
@@ -219,6 +219,6 @@ workload panel/style. Historical raw report hashes remain unchanged.
 
 Delivery review decision: PASS. The strict-order observations remain visible
 with their independently verified same-vector tie explanation. This review
-does not claim a multi-CN fix, same-table anli reproduction, universal quality
+does not claim a multi-CN fix, same-table application reproduction, universal quality
 acceptance threshold or independently saturated mixed-route QPS. Further
 customer cases use versioned SQL packs and their own explicit oracles.
