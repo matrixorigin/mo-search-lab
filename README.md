@@ -8,18 +8,19 @@ MO 全文与向量能力的性能评测、问题复现和调查工具。连接�
 
 完整操作流程见 [现场部署与测试手册](docs/handbook.md)，涵盖准备打包、现场安装、测试及报告查看。
 
-现场需要二进制、提前准备的数据包和可访问的 MO SQL 服务。执行性能测试的账号需要建库、建表、建索引、导入、查询及删库权限。现场无需 Go、Python、ES、模型或互联网。
-
-解压交付包，校验后启动交互界面：
+在能访问 GitHub 的 Linux x86_64 机器上，用统一资源包安装工具和全部四项常用测试数据：
 
 ```bash
-sha256sum -c SHA256SUMS
-./mo-search-lab version
-./mo-search-lab ui --launch --reports reports --packs packs \
+curl -fL https://github.com/matrixorigin/mo-search-lab/releases/download/v0.14.0/setup.sh -o setup.sh
+bash setup.sh
+cd mo-search-lab-v0.14.0-linux-amd64
+./mo-search-lab ui --launch --reports reports \
   --host 10.0.0.10 --port 6001 --user BENCH_USER --password '你的密码'
 ```
 
-把地址、端口和账号替换为现场连接信息；数据包另放时，将 `--packs` 指向实际的数据包根目录。`make release` 生成的工具包只含二进制和 `packs/smoke` 的 8 行流程样本，大数据包另外交付。完整 datasets-v1 现场包包含过滤、全文、两路测试三个 pack，解压后唯一文件内容约 15.73 GB；MO 存储另需容纳导入数据和索引。
+替换 MO SQL 连接信息即可。安装脚本自动下载、断点续传、校验和解压；GIST 性能、过滤、全文、两路测试全部包含，底层分卷无需手动处理。CSV 唯一内容约 27.76 GB，下载缓存与 MO 的数据/索引存储另计。
+
+现场不需要 Go、Python、ES 或模型。离线现场可直接携带整个安装目录；也可携带 Release 全部附件执行 `bash setup.sh --offline`。性能测试账号需要建库、建表、建索引、导入、查询及删库权限。
 
 ### 选择并运行测试
 
@@ -136,11 +137,11 @@ sha256sum -c SHA256SUMS
 CONN=(--host 10.0.0.10 --port 6001 --user BENCH_USER --password '你的密码')
 
 ./mo-search-lab run "${CONN[@]}" \
-  --pack packs/gist_1m_filtered_v7 --report-dir reports/filter-001
+  --pack packs/filter --report-dir reports/filter-001
 ./mo-search-lab run "${CONN[@]}" \
-  --pack packs/t2ranking_anli_full_500q_ngram_v3 --report-dir reports/t2-001
+  --pack packs/fulltext --report-dir reports/t2-001
 ./mo-search-lab run "${CONN[@]}" \
-  --pack packs/gist_t2_sql_workload_v7 --mixed-scenarios vector,fulltext \
+  --pack packs/dual-query --mixed-scenarios vector,fulltext \
   --report-dir reports/mixed-001
 ```
 
@@ -163,16 +164,9 @@ CONN=(--host 10.0.0.10 --port 6001 --user BENCH_USER --password '你的密码')
 
 ## 数据包
 
-公开数据包：[datasets-v1 Release](https://github.com/matrixorigin/mo-search-lab/releases/tag/datasets-v1)。下载、分卷合并及校验见 [数据包分发说明](docs/datasets.md)。
+[v0.14.0 完整资源 Release](https://github.com/matrixorigin/mo-search-lab/releases/tag/v0.14.0) 统一包含工具与四项常用测试。`packs/vector` 为向量性能与召回，`packs/filter` 为串行过滤检查，`packs/fulltext` 为全文检索，`packs/dual-query` 为两路同时查询。另附 `packs/smoke` 流程样本。
 
-| 测试项目 | 数据与用途 | datasets-v1 |
-| --- | --- | --- |
-| GIST1M · 向量性能与召回 | 100 万条、960 维向量；召回、延迟、并发、稳定性 | 需另行准备 health Top-100 包 |
-| GIST1M · 向量过滤检查 | 相同规模；串行 PRE/POST 与可见比例检查 | 包含 |
-| T2Ranking · 全文检索评测 | 230 万段落、500 条冻结查询与标注；应用分词检索，TF-IDF/BM25 | 包含 |
-| GIST + T2Ranking · 两路同时查询 | 共享前两份 CSV；独立 SQL 同时执行的延迟与吞吐 | 包含 |
-
-数据包和结果存放在源码仓库之外，通过 `--packs` / `--pack` 和报告路径指定。共享交付应保留 CSV 硬链接。稳定性与召回/相关性分别观察；并发数表示客户端请求数，不等于 CN 数量。
+数据来源、安装与离线交付见 [数据包说明](docs/datasets.md)。历史 datasets-v1 保留兼容，新部署使用统一资源包。原始数据和报告不进入源码 Git；发布归档保留共享 CSV 的硬链接、来源和输入校验和。
 
 ## 开发与构建
 
@@ -181,7 +175,7 @@ CONN=(--host 10.0.0.10 --port 6001 --user BENCH_USER --password '你的密码')
 ```bash
 make check        # Go 测试、vet、格式检查及 Python 脚本测试，无需 MO 服务
 make build        # 本机二进制
-make release      # dist/ 下的 Linux amd64 工具包及 SHA-256
+make release      # 开发者的小型工具包；现场直接用上面的完整资源安装
 ./mo-search-lab validate --pack cmd/mo-search-lab/testdata/smoke
 ```
 

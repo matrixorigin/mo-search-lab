@@ -4,7 +4,7 @@ VERSION ?= v0.14.0
 TARGET_OS ?= linux
 TARGET_ARCH ?= amd64
 
-.PHONY: all build test vet format-check python-test check release
+.PHONY: all build test vet format-check python-test check release release-full
 
 all: build
 
@@ -27,3 +27,8 @@ check: format-check vet test python-test
 
 release:
 	GO='$(GO)' bash scripts/release.sh '$(VERSION)' '$(TARGET_OS)' '$(TARGET_ARCH)'
+
+# Maintainer-only: dataset bytes remain outside Git; output must be a new directory.
+release-full: release
+	@test -n "$(PACKS_ROOT)" -a -n "$(OUTPUT_DIR)" || { echo 'set PACKS_ROOT and a new OUTPUT_DIR'; exit 1; }
+	$(PYTHON) tools/package_field_bundle.py --version '$(VERSION)' --tool-archive 'dist/mo-search-lab-$(VERSION)-linux-amd64.tar.gz' --packs-root '$(PACKS_ROOT)' --output '$(OUTPUT_DIR)'

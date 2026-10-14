@@ -97,7 +97,7 @@ This command atomically replaces only `report.html`; `report.json` and its origi
 
 The bundled eight-row pack is **only a runner smoke fixture**, not customer performance evidence. Its stability scenario requires at least three repetitions; the default independent `--stability-repeat 30` covers that requirement, regardless of ordinary `--repeat`. When opting into inheritance with `--stability-repeat 0`, choose `--repeat 3` or higher.
 
-The published datasets-v1 archive includes GIST1M filtered vectors, 2,303,643 T2Ranking passages with 500 frozen application-tokenized queries, and paired SQL using their shared CSVs. The separate GIST health Top-100 pack adds vector performance/recall measurements. T2Ranking semantic vector and hybrid packs still require separately prepared embeddings and exact vector truth; they are not part of that archive. The on-site host needs the executable, selected packs, and access to MatrixOne. Optional scoped Grafana/Prometheus queries are supported through `--monitoring-config`; unavailable resource metrics are explicit in the report.
+The v0.14.0 complete field release contains the executable plus all four routine packs: `packs/vector`, `packs/filter`, `packs/fulltext`, and `packs/dual-query`. `setup.sh` automatically downloads, resumes, verifies and extracts the single logical archive; users do not manually merge release parts or install a separate GIST health pack. See the [field handbook](../../docs/handbook.md). The historical datasets-v1 release remains available for older deployments. T2Ranking semantic vector/hybrid packs still require separately prepared embeddings and exact truth and are not part of the routine distribution.
 
 ## Interactive terminal runner and report viewer
 
