@@ -29,7 +29,7 @@ const rootHelp = `MO Search Lab · MO 全文与向量评测、问题复现与调
 
 默认普通性能测试 1 并发、预热 10 秒、持续测量 30 秒、1 轮；稳定性最多 5 条各重复 30 次。
 质量和稳定性作为观测值；数据准备、SQL 或清理错误影响完成状态。
-SQL 密码通过 --password 传入；数据包另行准备。
+SQL 密码通过 --password 传入；完整资源包内的测试数据位于 packs/。
 使用 mo-search-lab <命令> --help 查看参数和示例。
 `
 
@@ -72,11 +72,11 @@ var commandHelp = map[string]string{
 
 示例：
   mo-search-lab run --pack packs/smoke --password '你的密码' --report-dir reports/smoke-001
-  mo-search-lab run --pack /data/gist-health --concurrency-levels 1,4,8
-  mo-search-lab run --pack /data/gist-health --measure-duration 10s --warmup-duration 2s
-  mo-search-lab run --pack /data/gist-health --rounds 3
-  mo-search-lab run --pack /data/gist-health --measure-duration 0 --query-limit 20 --stability-repeat 10
-  mo-search-lab run --pack /data/gist-t2-workload --mixed-scenarios vector,fulltext
+  mo-search-lab run --pack packs/vector --concurrency-levels 1,4,8
+  mo-search-lab run --pack packs/vector --measure-duration 10s --warmup-duration 2s
+  mo-search-lab run --pack packs/vector --rounds 3
+  mo-search-lab run --pack packs/vector --measure-duration 0 --query-limit 20 --stability-repeat 10
+  mo-search-lab run --pack packs/dual-query --mixed-scenarios vector,fulltext
 
 持续模式循环使用选定查询池；--query-limit 缩小查询池，不缩短测量时间。
 按次数模式由 --repeat 与 --warmup 设置预算。所有模式均导入全部数据并建立索引。

@@ -1,49 +1,34 @@
-# Performance measurement
+# 性能测量口径
 
-## Contract
+## 执行预算
 
-Ordinary vector/fulltext and paired SQL performance workloads default to one
-30-second round at client concurrency 1, preceded by 10 seconds of warmup.
-`--rounds 3` repeats warmup and measurement on the same data and indexes, with
-3 seconds of cooldown between rounds. `--measure-duration 0` retains the
-fixed-query-count mode. Filter checks and stability checks remain fixed-count,
-serial workloads with their own budgets.
+普通向量、全文和两路同时查询默认 1 并发、预热 10 秒、持续测量 30 秒、1 轮。`--rounds 3` 重复预热与测量，轮间默认休息 3 秒；所有轮次复用同一次导入和建索引。
 
-Vectors/parameters and persistent worker sessions are prepared before timing.
-Each worker issues a new request only while the measurement window is open.
-Requests already in flight are drained. QPS uses successful SQL requests divided
-by actual wall time through the last completion. Paired workloads wait for both
-routes and record separate route latencies over the same wall time. These are
-closed-loop client measurements: serialization by the SQL driver, network,
-result reading and lightweight recording/dispatch overhead remain included.
-They do not claim server-only latency or open-loop arrival-rate behavior.
+`--query-limit` 限制持续模式的查询池，`--measure-duration` 设置每轮测量时间。`--measure-duration 0` 使用按次数模式，由 `--repeat` 和 `--warmup` 设置预算。过滤与稳定性按次数串行执行。
 
-No quality scoring, percentile aggregation, chart generation or progress logging
-runs inside the measured worker phase. All successful latency samples participate
-in pooled nearest-rank P50/P90/P95/P99. Each round also has its own statistics.
-Pooled QPS uses the sum of successes / sum of actual measurement times; QPS sample
-standard deviation and coefficient of variation describe individual round QPS.
-Warmup, cooldown and quality-processing time are excluded from that denominator.
+向量参数与执行连接在计时前准备。每个工作线程在测量窗口内持续发起查询，窗口结束后等待在途请求完成。这是客户端闭环测量，包含请求调度、SQL 驱动、网络、服务处理与完整读取结果的耗时。
 
-## Quality evidence and bounded retention
+## 延迟与吞吐
 
-During duration workloads, only the first request for each selected query per
-round retains result IDs. Quality is computed from these samples after timing;
-other requests retain latency, success/error, query identity and round, and do
-not count as zero-quality results. Reports state the quality sample count.
-Stability checking remains independent and retains all of its results.
+- **QPS** = 成功 SQL 请求数 / 实际测量秒数；实际时间包含在途请求收尾。
+- **延迟**从发起 SQL 到读取完整结果。成功请求参与 P50/P90/P95/P99，SQL 错误单独计数。
+- **多轮汇总 QPS** = 各轮成功请求数之和 / 各轮实际测量时间之和。
+- **汇总分位数**合并所有成功延迟样本，使用 nearest-rank 方法计算。
+- **波动**用各轮 QPS 的样本标准差和变异系数描述，报告同时保留逐轮数据。
+- **两路同时查询**使用同一段墙钟时间，等待两路完成，分别记录各路延迟与吞吐。
 
-The planner reserves fixed-count checks and splits the remaining 100,000-request
-and 1,000,000-ID report budget across duration profiles, including paired routes.
-If a request budget is reached, the workload stops and explicitly reports that
-the target duration was not completed. Reduced quality coverage is also explicit.
-This prevents unbounded heap/report growth without silently claiming full-duration
-results. A report with fewer than 1,000 successful latency samples warns that P99
-has limited tail evidence. Old reports without these fields retain their original
-semantics when rendered or viewed in the CLI.
+预热、轮间休息、质量计算、分位数聚合和报告生成在性能计时之外执行。
 
-## Evidence required
+## 质量与稳定性
 
-Check in-flight overrun accounting, cancellation and worker cleanup, sample caps,
-quality exclusion, pooled percentile/quality denominators, shared paired timing,
-serial filter admission, CLI option round trips and old/new report rendering.
+持续模式中，每轮每条选中查询的首次请求保留结果 ID，计时结束后计算质量；其余请求保留延迟、执行状态、查询身份和轮次。报告分别展示性能样本数、质量样本数及查询覆盖率。
+
+稳定性使用独立预算，默认最多 5 条查询、每条重复 30 次，保留每次结果。集合和顺序变化分别记录，与召回率独立展示。
+
+质量和结果变化是观测值；数据准备、连接、SQL 或清理错误影响完成状态。
+
+## 原始记录与样本限制
+
+持续测量的原始记录总预算为 100,000 次执行、1,000,000 个结果 ID。规划器先预留按次数检查的预算，再将剩余预算分配给持续测量档位及两路查询。
+
+达到预算时提前结束，并在报告中标明实际时间、样本量和覆盖率。成功延迟样本少于 1,000 时，报告提示 P99 的尾部证据有限。输入身份、参数、SQL、执行计划和原始请求记录保存在 `report.json`。

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-version=${1:-v0.14.0}
+version=${1:-v0.14.1}
 target_os=${2:-linux}
 target_arch=${3:-amd64}
 for component in "$version" "$target_os" "$target_arch"; do
@@ -20,10 +20,8 @@ mkdir -p "$bundle/packs"
 GOWORK=off CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
   "${GO:-go}" build -mod=readonly -trimpath -ldflags="-s -w -X main.version=$version" \
   -o "$bundle/mo-search-lab" ./cmd/mo-search-lab
-cp README.md LICENSE "$bundle/"
+cp README.md LICENSE NOTICE "$bundle/"
 cp -R docs "$bundle/"
-mkdir -p "$bundle/cmd/mo-search-lab"
-cp cmd/mo-search-lab/README.md "$bundle/cmd/mo-search-lab/"
 cp -R cmd/mo-search-lab/testdata/smoke "$bundle/packs/smoke"
 (
   cd "$bundle"

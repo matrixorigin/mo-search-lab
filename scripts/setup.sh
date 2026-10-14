@@ -2,7 +2,7 @@
 # Download and install the complete offline MO Search Lab distribution.
 set -euo pipefail
 
-version='v0.14.0'
+version='v0.14.1'
 name="mo-search-lab-${version}-linux-amd64"
 archive="${name}-full.tar.gz"
 base_url="https://github.com/matrixorigin/mo-search-lab/releases/download/${version}"

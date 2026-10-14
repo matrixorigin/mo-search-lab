@@ -36,9 +36,10 @@ type fileRef struct {
 }
 
 type loadSpec struct {
-	File  fileRef `json:"file"`
-	Table string  `json:"table"`
-	Rows  int64   `json:"rows"`
+	File    fileRef  `json:"file"`
+	Table   string   `json:"table"`
+	Rows    int64    `json:"rows"`
+	Columns []string `json:"columns,omitempty"` // Empty entries discard CSV fields.
 }
 
 type manifest struct {
@@ -133,8 +134,8 @@ func loadPackContext(ctx context.Context, dir string) (*pack, error) {
 	if err := decodeStrict(raw, &m); err != nil {
 		return nil, fmt.Errorf("manifest: %w", err)
 	}
-	if m.SchemaVersion < 1 || m.SchemaVersion > 3 || !safeIdentifier.MatchString(m.Dataset) || len(m.DDL) == 0 || len(m.Loads) == 0 || len(m.Scenarios) == 0 {
-		return nil, errors.New("manifest requires schema_version=1, 2 or 3, a safe dataset name, DDL, loads, and scenarios")
+	if m.SchemaVersion < 1 || m.SchemaVersion > 4 || !safeIdentifier.MatchString(m.Dataset) || len(m.DDL) == 0 || len(m.Loads) == 0 || len(m.Scenarios) == 0 {
+		return nil, errors.New("manifest requires schema_version=1..4, a safe dataset name, DDL, loads, and scenarios")
 	}
 	for _, statement := range append(append([]string{}, m.DDL...), m.Indexes...) {
 		if err := validateStatement(statement, false); err != nil {
@@ -145,6 +146,12 @@ func loadPackContext(ctx context.Context, dir string) (*pack, error) {
 	for _, load := range m.Loads {
 		if !safeIdentifier.MatchString(load.Table) || load.Rows < 1 || !strings.HasSuffix(strings.ToLower(load.File.Path), ".csv") {
 			return nil, fmt.Errorf("invalid load table or row count: %q", load.Table)
+		}
+		if len(load.Columns) > 0 && m.SchemaVersion < 4 {
+			return nil, errors.New("load columns require schema version 4")
+		}
+		if _, err := loadColumnList(load.Columns); err != nil {
+			return nil, err
 		}
 		path, _, err := p.verifyFile(load.File)
 		if err != nil {

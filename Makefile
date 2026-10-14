@@ -1,6 +1,6 @@
 GO ?= go
 PYTHON ?= python3
-VERSION ?= v0.14.0
+VERSION ?= v0.14.1
 TARGET_OS ?= linux
 TARGET_ARCH ?= amd64
 

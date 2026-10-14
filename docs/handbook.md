@@ -5,7 +5,7 @@
 在能访问 GitHub 的 **Linux x86_64** 机器上执行：
 
 ```bash
-curl -fL https://github.com/matrixorigin/mo-search-lab/releases/download/v0.14.0/setup.sh -o setup.sh
+curl -fL https://github.com/matrixorigin/mo-search-lab/releases/download/v0.14.1/setup.sh -o setup.sh
 bash setup.sh
 ```
 
@@ -14,7 +14,7 @@ bash setup.sh
 安装结果：
 
 ```text
-mo-search-lab-v0.14.0-linux-amd64/
+mo-search-lab-v0.14.1-linux-amd64/
   mo-search-lab
   packs/
     vector/       # GIST1M 向量性能、召回、重复稳定性
@@ -27,18 +27,14 @@ mo-search-lab-v0.14.0-linux-amd64/
   DATASETS.md     # 公开数据来源与许可说明
 ```
 
-**工具与四项测试数据都在同一个资源包中。无需另找 GIST 包、SSH 到准备机、构建源码或手动合并分卷。**
-
-完整 CSV 唯一内容约 27.76 GB，另需下载缓存空间；MO 服务端需要额外的数据和索引存储。共享 CSV 在资源包中只保存一份，解压时保留硬链接。
-
-GitHub 附件有单文件 2 GiB 限制，Release 底层使用分卷；下载、合并校验和解压全部由脚本处理。
+下载约 4 GB，完整 CSV 唯一内容约 15.72 GB；MO 服务端需要额外的数据和索引存储。共享 CSV 在资源包中只保存一份，解压时保留硬链接。
 
 ## 2. 开始测试
 
 需要一个可访问的 MO SQL 服务，测试账号允许建库、建表、建索引、导入、查询和删除本次测试库。
 
 ```bash
-cd mo-search-lab-v0.14.0-linux-amd64
+cd mo-search-lab-v0.14.1-linux-amd64
 ./mo-search-lab ui --launch --reports reports \
   --host 10.0.0.10 --port 6001 --user BENCH_USER --password '你的密码'
 ```
@@ -69,14 +65,14 @@ cd mo-search-lab-v0.14.0-linux-amd64
 在有网络的机器先运行安装脚本，将**整个安装目录**打包带到现场即可：
 
 ```bash
-tar -czf mo-search-lab-offline.tar.gz mo-search-lab-v0.14.0-linux-amd64
+tar -czf mo-search-lab-offline.tar.gz mo-search-lab-v0.14.1-linux-amd64
 ```
 
 现场解压后直接执行第 2 节，不需要互联网：
 
 ```bash
 tar -xzf mo-search-lab-offline.tar.gz
-cd mo-search-lab-v0.14.0-linux-amd64
+cd mo-search-lab-v0.14.1-linux-amd64
 ./mo-search-lab ui --launch --reports reports --host MO_SQL_HOST --password '你的密码'
 ```
 

@@ -4,6 +4,7 @@ import hashlib
 import http.server
 import json
 import os
+import random
 from pathlib import Path
 import shutil
 import subprocess
@@ -36,14 +37,33 @@ class FieldBundleTests(unittest.TestCase):
         with tarfile.open(tool_archive, "w:gz") as archive:
             archive.add(tool, arcname=name)
         packs = cls.root / "packs"
+        rng = random.Random(71)
+        original = cls.root / "original.csv"
         shared = cls.root / "shared.csv"
-        shared.write_bytes(os.urandom(16000))
+        text = cls.root / "texts.csv"
+        vectors = [f'{i},"[{",".join(str(rng.random()) for _ in range(16))}]"\n'
+                   for i in range(100)]
+        original.write_text("".join(vectors))
+        shared.write_text("".join(line.split(",", 1)[0] + "," + line for line in vectors))
+        text.write_text("".join(f'{i},"{rng.randbytes(128).hex()}"\n' for i in range(100)))
+        cls.source_files = {}
         for index, source in enumerate(bundle.PACKS.values()):
             target = packs / source
             target.mkdir(parents=True)
-            (target / "manifest.json").write_text(json.dumps({"dataset": f"public{index}"}))
+            files = ({"documents.csv": original} if index == 0 else
+                     {"vectors.csv": shared} if index == 1 else
+                     {"documents.csv": text} if index == 2 else
+                     {"vectors.csv": shared, "texts.csv": text})
+            loads = []
+            for filename, csv in files.items():
+                os.link(csv, target / filename)
+                loads.append({"file": {"path": filename, "sha256": bundle.sha256(csv)},
+                              "table": "documents", "rows": 100})
+            (target / "manifest.json").write_text(json.dumps({"dataset": f"public{index}", "loads": loads,
+                                                              "schema_version": 3}))
             (target / "source.json").write_text('{}\n')
-            os.link(shared, target / "data.csv")
+            for path in target.iterdir():
+                cls.source_files[path] = bundle.sha256(path)
         cls.output = cls.root / "release"
         cls.summary = bundle.package(tool_archive, packs, cls.output, "v0.14.0", part_bytes=4096)
         cls.name = name
@@ -68,8 +88,12 @@ class FieldBundleTests(unittest.TestCase):
             target = parent / self.name
             for alias in bundle.PACKS:
                 self.assertTrue((target / "packs" / alias / "manifest.json").is_file())
-            self.assertEqual((target / "packs/vector/data.csv").stat().st_ino,
-                             (target / "packs/dual-query/data.csv").stat().st_ino)
+            self.assertEqual((target / "packs/vector/documents.csv").stat().st_ino,
+                             (target / "packs/dual-query/vectors.csv").stat().st_ino)
+            self.assertEqual((target / "packs/filter/vectors.csv").stat().st_ino,
+                             (target / "packs/dual-query/vectors.csv").stat().st_ino)
+            self.assertEqual((target / "packs/fulltext/documents.csv").stat().st_ino,
+                             (target / "packs/dual-query/texts.csv").stat().st_ino)
             reports = target / "reports"
             reports.mkdir()
             (reports / "keep.json").write_text("original")
@@ -129,7 +153,7 @@ class FieldBundleTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse((base / "new" / self.name).exists())
 
-    def test_parts_are_a_single_archive_and_all_frozen_files_are_preserved(self):
+    def test_parts_are_a_single_archive_and_sources_remain_frozen(self):
         digest = hashlib.sha256()
         for part in self.summary["parts"]:
             payload = (self.output / part["name"]).read_bytes()
@@ -138,4 +162,25 @@ class FieldBundleTests(unittest.TestCase):
         self.assertEqual(digest.hexdigest(), self.summary["archive_sha256"])
         with tarfile.open(self.summary["archive"]) as archive:
             source = archive.extractfile(self.name + "/packs/vector/manifest.json")
-            self.assertEqual(source.read(), json.dumps({"dataset": "public0"}).encode())
+            manifest = json.loads(source.read())
+            self.assertEqual(manifest["schema_version"], 4)
+            self.assertEqual(manifest["loads"][0]["columns"], ["id", "", "embedding"])
+            shared_files = [entry for entry in archive.getmembers()
+                            if entry.name.endswith(".csv") and entry.isfile()]
+            self.assertEqual(len(shared_files), 2)
+        for path, digest in self.source_files.items():
+            self.assertEqual(bundle.sha256(path), digest)
+
+    def test_shared_projection_rejects_different_vectors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(self.root / "packs" / bundle.PACKS["vector"], root / "packs/vector")
+            shutil.copytree(self.root / "packs" / bundle.PACKS["filter"], root / "packs/filter")
+            (root / "packs/vector/documents.csv").unlink()
+            csv = root / "packs/filter/vectors.csv"
+            lines = csv.read_text().splitlines(keepends=True)
+            lines[0] = lines[0].replace("[", "[9,", 1)
+            csv.write_text("".join(lines))
+            with self.assertRaisesRegex(ValueError, "projection does not match"):
+                bundle.compact_vector_pack(root)
+            self.assertFalse((root / "packs/vector/documents.csv").exists())

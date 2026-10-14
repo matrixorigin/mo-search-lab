@@ -316,9 +316,13 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 	loadedRows := make(map[string]int64)
 	for i, load := range p.Manifest.Loads {
 		path := p.LoadPaths[i]
+		columns, err := loadColumnList(load.Columns)
+		if err != nil {
+			return report, err
+		}
 		mysql.RegisterLocalFile(path)
-		statement := fmt.Sprintf("LOAD DATA LOCAL INFILE %s INTO TABLE `%s` FIELDS TERMINATED BY ',' ENCLOSED BY '\"' LINES TERMINATED BY '\\n'", sqlString(path), load.Table)
-		err := execStage(ctx, db, &report, "load_"+load.Table, statement, o.timeout*10)
+		statement := fmt.Sprintf("LOAD DATA LOCAL INFILE %s INTO TABLE `%s` FIELDS TERMINATED BY ',' ENCLOSED BY '\"' LINES TERMINATED BY '\\n'%s", sqlString(path), load.Table, columns)
+		err = execStage(ctx, db, &report, "load_"+load.Table, statement, o.timeout*10)
 		mysql.DeregisterLocalFile(path)
 		if err != nil {
 			return report, err
