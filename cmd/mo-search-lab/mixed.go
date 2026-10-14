@@ -59,8 +59,13 @@ func validateMixedSelection(scenarios []loadedScenario, o options, runs []scenar
 		if run.Options.queryLimit > 0 {
 			n = min(n, run.Options.queryLimit)
 		}
-		executions += n * run.Options.repeat
-		ids += n * run.Options.repeat * run.Scenario.TopK
+		if timedPerformance(run.Scenario, run.Options) {
+			executions += run.Options.measurementLimit
+			ids += min(n, run.Options.qualityQueryLimit) * max(1, run.Options.rounds) * run.Scenario.TopK
+		} else {
+			executions += n * run.Options.repeat
+			ids += n * run.Options.repeat * run.Scenario.TopK
+		}
 		return n
 	}
 	for _, run := range runs {
@@ -68,6 +73,9 @@ func validateMixedSelection(scenarios []loadedScenario, o options, runs []scenar
 	}
 	for _, pair := range pairs {
 		a, b := countRun(pair[0]), countRun(pair[1])
+		if timedPerformance(pair[0].Scenario, pair[0].Options) != timedPerformance(pair[1].Scenario, pair[1].Options) {
+			return fmt.Errorf("mixed routes must use the same measurement mode")
+		}
 		if a != b || pair[0].Options.repeat != pair[1].Options.repeat {
 			return fmt.Errorf("mixed profiles require equal selected query counts and repetitions")
 		}
@@ -90,6 +98,22 @@ func rawSQLQuery(ctx context.Context, conn sqlQueryer, s loadedScenario, q query
 		r.Error = err.Error()
 	} else {
 		r.SQLSucceeded = true
+		r.ReturnedRows = len(r.IDs)
+	}
+	return r
+}
+
+func preparedSQLQuery(ctx context.Context, conn sqlQueryer, s loadedScenario, id string, args []any, iteration int, timeout time.Duration) QueryResult {
+	r := QueryResult{ID: id, Iteration: iteration}
+	start := time.Now()
+	var err error
+	r.IDs, err = selectIDs(ctx, conn, s.SQL, args, s.TopK, timeout, s.IDColumn, false)
+	r.LatencyMS = float64(time.Since(start).Microseconds()) / 1000
+	if err != nil {
+		r.Error = err.Error()
+	} else {
+		r.SQLSucceeded = true
+		r.ReturnedRows = len(r.IDs)
 	}
 	return r
 }
@@ -141,6 +165,10 @@ func runMixedScenarios(ctx context.Context, db *sql.DB, pair [2]scenarioRun) (re
 		return reports
 	}
 	o := pair[0].Options
+	if timedPerformance(pair[0].Scenario, o) {
+		o.measurementLimit = min(pair[0].Options.measurementLimit, pair[1].Options.measurementLimit)
+		o.qualityQueryLimit = min(pair[0].Options.qualityQueryLimit, pair[1].Options.qualityQueryLimit)
+	}
 	if reports[0].SelectedQueries == 0 || reports[0].SelectedQueries != reports[1].SelectedQueries || o.repeat < 1 || o.concurrency < 1 {
 		return fail(fmt.Errorf("invalid mixed runtime profile"))
 	}
@@ -189,6 +217,39 @@ func runMixedScenarios(ctx context.Context, db *sql.DB, pair [2]scenarioRun) (re
 		children.Wait()
 		return results
 	}
+	if timedPerformance(pair[0].Scenario, o) && timedPerformance(pair[1].Scenario, o) {
+		var prepared [2][][]any
+		for route, run := range pair {
+			prepared[route] = make([][]any, len(queries[route]))
+			for index, q := range queries[route] {
+				var err error
+				prepared[route][index], err = argsFor(q, run.Scenario.Args)
+				if err != nil {
+					return fail(err)
+				}
+			}
+		}
+		execute := func(worker, index int) []QueryResult {
+			results := make([]QueryResult, 2)
+			var children sync.WaitGroup
+			children.Add(2)
+			for route := range pair {
+				go func(route int) {
+					defer children.Done()
+					qIndex := index % len(queries[route])
+					results[route] = preparedSQLQuery(ctx, sessions[route][worker], pair[route].Scenario, queries[route][qIndex].ID, prepared[route][qIndex], index/len(queries[route]), o.timeout)
+				}(route)
+			}
+			children.Wait()
+			return results
+		}
+		runTimedMeasurement(ctx, []*ScenarioReport{&reports[0], &reports[1]}, []loadedScenario{pair[0].Scenario, pair[1].Scenario}, [][]query{queries[0], queries[1]}, o, execute)
+		return reports
+	}
+	for route := range reports {
+		reports[route].PerformanceMode = "count"
+	}
+
 	for i := 0; i < o.warmup; i++ {
 		for route, result := range executePair(i%o.concurrency, i%len(queries[0]), -1) {
 			if !result.SQLSucceeded {

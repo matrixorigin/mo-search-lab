@@ -27,7 +27,7 @@ const rootHelp = `MO Search Lab · MO 全文与向量评测、问题复现与调
   mo-search-lab ui --reports reports
   mo-search-lab run --pack packs/smoke --password '你的密码' --report-dir reports/smoke-001
 
-默认测量全部普通查询、1 并发；稳定性最多 5 条查询各重复 30 次。
+默认普通性能测试 1 并发、预热 10 秒、持续测量 30 秒、1 轮；稳定性最多 5 条各重复 30 次。
 质量和稳定性作为观测值；数据准备、SQL 或清理错误影响完成状态。
 SQL 密码通过 --password 传入；数据包另行准备。
 使用 mo-search-lab <命令> --help 查看参数和示例。
@@ -43,6 +43,7 @@ var commandHelp = map[string]string{
   mo-search-lab ui --reports reports --plain --section stability
 
 新任务默认勾选已安装常用测试，每个数据集默认 1 并发。
+更多设置可调整每轮测量/预热时长、轮数和轮间休息；测量时长 0s 为按次数模式。
 在测试列表中按空格勾选数据集及额外 4、8 并发；过滤检查保持串行。
 --launch 直接打开表单；不加时先看最新报告，无报告时自动打开表单。
 --host/--port/--user/--password 用于预填新任务；查看报告无需连接 MO。
@@ -63,17 +64,23 @@ var commandHelp = map[string]string{
 
 校验输入 → 建测试库 → 导入 → 建索引 → 预热 → 测量 → 清理 → 保存报告。
 --pack 必填；连接默认 127.0.0.1:6001、root、空密码，其他参数可省略。
-默认全部普通查询各测 1 次、1 并发、预热 5 次；稳定性最多 5 条各重复 30 次。
+默认普通向量/全文性能每轮预热 10 秒、持续测量 30 秒，1 并发、1 轮。
+过滤和稳定性保持串行按次数检查；稳定性最多 5 条各重复 30 次。
+--rounds 3 可测量轮间波动；--measure-duration 0 恢复按次数模式。
 召回、相关性及集合/顺序变化均为观测值，不设验收断言。
 输出目录必须是新路径；--keep-db 可保留测试库用于调查。
 
 示例：
   mo-search-lab run --pack packs/smoke --password '你的密码' --report-dir reports/smoke-001
   mo-search-lab run --pack /data/gist-health --concurrency-levels 1,4,8
-  mo-search-lab run --pack /data/gist-health --query-limit 20 --stability-repeat 10
+  mo-search-lab run --pack /data/gist-health --measure-duration 10s --warmup-duration 2s
+  mo-search-lab run --pack /data/gist-health --rounds 3
+  mo-search-lab run --pack /data/gist-health --measure-duration 0 --query-limit 20 --stability-repeat 10
   mo-search-lab run --pack /data/gist-t2-workload --mixed-scenarios vector,fulltext
 
-减少查询数或重复数仍会导入全部数据并建立索引。
+持续模式循环使用选定查询池；--query-limit 缩小查询池，不缩短测量时间。
+按次数模式由 --repeat 与 --warmup 设置预算。所有模式均导入全部数据并建立索引。
+QPS 使用实际测量时间；质量计算在计时结束后进行，报告注明质量样本量。
 稳定性始终串行，预算独立于普通查询；多并发复用同一次导入和索引。
 `,
 	"inspect": `用法：mo-search-lab inspect [参数]

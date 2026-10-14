@@ -105,7 +105,7 @@ func (m *terminalModel) frame(header, body, footer []terminalRow) string {
 }
 
 func terminalFieldLabel(index int) string {
-	labels := []string{"执行任务", "地址", "端口", "账号", "密码", "测试项目", "报告目录", "更多设置", "查询数量", "并发档位", "两路同时查询", "单查询超时", "测量次数", "预热次数", "重复稳定性次数", "稳定性查询数", "环境声明", "MO 配置 (TOML)", "监控配置", "保留测试库", "开始运行"}
+	labels := []string{"执行任务", "地址", "端口", "账号", "密码", "测试项目", "报告目录", "更多设置", "查询数量", "并发档位", "两路同时查询", "单查询超时", "按次数模式重复", "按次数模式预热", "每轮测量时长", "每轮预热时长", "性能测量轮数", "轮间休息时长", "重复稳定性次数", "稳定性查询数", "环境声明", "MO 配置 (TOML)", "监控配置", "保留测试库", "开始运行"}
 	return labels[index]
 }
 
@@ -210,7 +210,7 @@ func terminalKV(label, value string, width int) []string {
 func terminalSection(title string) []string { return []string{"", title, ""} }
 
 func terminalReportHeading(text string) bool {
-	for _, prefix := range []string{"P90 延迟", "P95 延迟", "P99 延迟", "成功查询吞吐", "检索质量", "版本与部署", "节点与缓存", "Metadata 缓存", "检索参数", "资源监控", "诊断详情", "测量 SQL", "向量 SQL", "全文 SQL", "会话设置", "索引定义", "场景 SHA", "查询 SHA", "逻辑/物理执行计划", "物理计划", "全文计划", "运行身份与输入记录", "配置差异", "采集缺失", "原始错误", "指标说明", "备注", "测试条件", "性能结果", "环境基础配置", "记录来源"} {
+	for _, prefix := range []string{"P90 延迟", "P95 延迟", "P99 延迟", "成功查询吞吐", "各轮吞吐", "检索质量", "版本与部署", "节点与缓存", "Metadata 缓存", "检索参数", "资源监控", "诊断详情", "测量 SQL", "向量 SQL", "全文 SQL", "会话设置", "索引定义", "场景 SHA", "查询 SHA", "逻辑/物理执行计划", "物理计划", "全文计划", "运行身份与输入记录", "配置差异", "采集缺失", "原始错误", "指标说明", "备注", "测试条件", "性能结果", "环境基础配置", "记录来源"} {
 		if strings.HasPrefix(text, prefix) {
 			return true
 		}

@@ -38,6 +38,12 @@ type options struct {
 	repeat              int
 	concurrency         int
 	warmup              int
+	measureDuration     time.Duration
+	warmupDuration      time.Duration
+	rounds              int
+	cooldown            time.Duration
+	measurementLimit    int // Bounded raw samples allocated by the profile planner.
+	qualityQueryLimit   int // First requests retained for post-measurement scoring.
 	timeout             time.Duration
 	keepDB              bool
 	queryEndpoints      []string
@@ -92,7 +98,11 @@ func main() {
 		levels, mixed, endpoints := registerRunFlags(fs, &o)
 		configureCommandHelp(fs)
 		_ = fs.Parse(args[1:])
-		if o.pack == "" || o.repeat < 1 || o.repeat > 100000 || o.concurrency < 1 || o.concurrency > 128 || o.warmup < 0 || o.warmup > 10000 || o.queryLimit < 0 || o.timeout <= 0 || o.timeout > (1<<63-1)/10 || o.port < 1 || o.port > 65535 {
+		if measurementErr := validateMeasurementOptions(o); measurementErr != nil {
+			err = measurementErr
+		} else if o.rounds < 1 {
+			err = fmt.Errorf("--rounds must be 1..10")
+		} else if o.pack == "" || o.repeat < 1 || o.repeat > 100000 || o.concurrency < 1 || o.concurrency > 128 || o.warmup < 0 || o.warmup > 10000 || o.queryLimit < 0 || o.timeout <= 0 || o.timeout > (1<<63-1)/10 || o.port < 1 || o.port > 65535 {
 			err = fmt.Errorf("invalid run flags: --pack, repeat 1..100000, concurrency 1..128, warmup 0..10000, positive timeout/port, nonnegative query-limit are required")
 		} else {
 			o.concurrencyLevels, err = runConcurrencyLevels(fs, *levels)

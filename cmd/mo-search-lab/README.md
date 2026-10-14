@@ -2,6 +2,21 @@
 
 This command is a standalone client for on-site retrieval checks. It connects to an existing MatrixOne SQL service, creates a uniquely named database, loads a **versioned public data pack**, builds the pack's indexes, measures fulltext/vector/filtered/hybrid queries, and writes local JSON and HTML reports. It does not install MatrixOne, call an embedding model, or require Python or a MySQL CLI at the customer site.
 
+## Duration-based performance profiles
+
+Ordinary vector/fulltext and paired SQL measurements default to 10s warmup,
+30s measurement, concurrency 1 and one round. Use `--rounds 3` for repeated
+measurements and `--cooldown 3s` between rounds. Filter/stability checks retain
+fixed-count serial execution. QPS uses actual wall time including in-flight
+completion; quality scoring runs after timing. Duration profiles retain quality
+IDs from the first request per selected query per round, with explicit coverage
+and bounded raw-sample budgets. HTML/CLI show per-round QPS, sample counts,
+percentiles and variation. See [measurement contract](../../docs/performance-measurement.md).
+
+`--measure-duration 0` restores the count-based profiles shown in historical
+examples below; `--repeat` and `--warmup` apply to that mode. In duration mode,
+`--query-limit` changes the query pool, while `--measure-duration` sets the time.
+
 ## Help and command selection
 
 ```sh

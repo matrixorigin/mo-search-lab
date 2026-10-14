@@ -188,6 +188,27 @@ func (m *terminalModel) concurrencyLines() []string {
 		}
 		lines = append(lines, line)
 	}
+	for _, s := range scenarios {
+		if len(s.MeasurementRounds) == 0 {
+			continue
+		}
+		lines = append(lines, "", fmt.Sprintf("%s / C%d · %d 轮 · 质量样本 %d", scenarioDisplayName(s.ID), s.EffectiveConcurrency, len(s.MeasurementRounds), s.QualitySamples))
+		var rounds []terminalBar
+		for _, round := range s.MeasurementRounds {
+			rounds = append(rounds, terminalBar{fmt.Sprintf("第 %d 轮", round.Number), round.QPS, round.SQLSuccesses > 0})
+		}
+		lines = append(lines, terminalBars("各轮吞吐", "QPS", rounds, m.textWidth(), 0)...)
+		if len(s.MeasurementRounds) > 1 {
+			lines = append(lines, fmt.Sprintf("各轮 QPS 标准差 %.2f · 变异系数 %.1f%%", s.QPSStdDev, s.QPSVariation))
+		} else {
+			lines = append(lines, "单轮测量，未评估轮间波动。")
+		}
+		for _, round := range s.MeasurementRounds {
+			lines = append(lines, fmt.Sprintf("第 %d 轮：目标 %.3fs / 实测 %.3fs · 成功 %d / 错误 %d · P50/P90/P95/P99 %.2f / %.2f / %.2f / %.2f ms · %s", round.Number, round.TargetSeconds, round.MeasuredSeconds, round.SQLSuccesses, round.SQLFailures, round.P50MS, round.P90MS, round.P95MS, round.P99MS, measurementStopReason(round.StopReason)))
+		}
+		lines = append(lines, s.MeasurementWarnings...)
+	}
+
 	if len(m.doc.View.Profile.MixedScenarios) > 0 {
 		lines = append(lines, "", "_mixed：C 个配对作业，最多同时运行 2C 条 SQL。", "两路分别记录延迟；QPS 共用批次时长，每对等待两路完成。", "配对节奏会改变负载；向量尾延迟降低不代表单路容量提高。")
 	}
@@ -196,6 +217,11 @@ func (m *terminalModel) concurrencyLines() []string {
 
 func (m *terminalModel) qualityLines() []string {
 	lines := make([]string, 0, len(m.doc.View.Scenarios)*8)
+	for _, s := range m.ordinaryScenarios() {
+		if s.PerformanceMode == "duration" {
+			lines = append(lines, fmt.Sprintf("%s：质量来自每轮每条查询首次请求，共 %d 个成功样本，覆盖 %d/%d 条查询；计时结束后计算。", scenarioDisplayName(s.ID), s.QualitySamples, s.QualityQueries, s.SelectedQueries))
+		}
+	}
 	for i, s := range m.doc.View.Scenarios {
 		if s.Oracle != "ann_recall" && s.Oracle != "qrels" || m.level != 0 && s.EffectiveConcurrency != m.level {
 			continue
@@ -207,7 +233,7 @@ func (m *terminalModel) qualityLines() []string {
 		lines = append(lines, fmt.Sprintf("%s / C%d / Top-%d / %s", scenarioDisplayName(s.ID), s.EffectiveConcurrency, s.TopK, mode))
 		var bars []terminalBar
 		if s.Oracle == "ann_recall" {
-			bars = append(bars, terminalBar{fmt.Sprintf("Recall@%d", s.TopK), s.MeanScore, s.SQLSuccesses > 0})
+			bars = append(bars, terminalBar{fmt.Sprintf("Recall@%d", s.TopK), s.MeanScore, s.QualitySamples > 0})
 		} else {
 			rows := buildRetrievalQualityRows([]ScenarioReport{s})
 			for _, row := range rows {
@@ -441,7 +467,11 @@ P90 / P95 / P99：按成功 SQL 的延迟升序取最近秩分位数。P95 表�
 95% 的成功测量延迟不超过此值。统计所有成功 SQL 的实测延迟。
 SQL 错误没有可用延迟样本，排除在延迟、吞吐和质量均值之外。
 
-QPS：成功查询执行数 / 批次测量秒数。warmup 不计入。
+QPS：成功查询执行数 / 实际测量秒数，包含在途请求收尾。
+预热、轮间休息和质量计算不计入。默认持续测量 30 秒、1 轮。
+多轮整体分位数合并所有成功延迟；QPS 标准差和变异系数描述轮间波动。
+持续模式每轮每条查询首次请求保留质量结果，其余只记录性能。
+样本上限导致提前结束时明确标记；样本不足时谨慎解读 P99。
 _mixed 两路共用批次时长；每对等两路完成，两路独立统计。
 客户端并发 C 是同时在执行的作业上限，不表示 CN 数量。
 两路同时运行时最多 2C 条 SQL；没有客户端融合、重排或模型调用。

@@ -54,6 +54,10 @@ const (
 	launchTimeout
 	launchRepeat
 	launchWarmup
+	launchMeasureDuration
+	launchWarmupDuration
+	launchRounds
+	launchCooldown
 	launchStabilityRepeat
 	launchStabilityLimit
 	launchEnvironment
@@ -150,7 +154,10 @@ func (m *terminalModel) openLauncher() {
 		{"更多设置", ""}, {"每场景查询数（0 = 全部）", strconv.Itoa(o.queryLimit)},
 		{"并发（留空 = 自动）", levels}, {"同时运行的两路场景（可选）", strings.Join(o.mixedScenarios, ",")},
 		{"单查询超时", o.timeout.String()}, {"每条查询测量次数", strconv.Itoa(o.repeat)},
-		{"预热次数", strconv.Itoa(o.warmup)}, {"稳定性重复次数", strconv.Itoa(o.stabilityRepeat)},
+		{"按次数模式预热次数", strconv.Itoa(o.warmup)},
+		{"每轮性能测量时长（0s = 按次数）", o.measureDuration.String()},
+		{"每轮性能预热时长", o.warmupDuration.String()}, {"性能测量轮数", strconv.Itoa(max(1, o.rounds))},
+		{"轮间休息时长", o.cooldown.String()}, {"稳定性重复次数", strconv.Itoa(o.stabilityRepeat)},
 		{"稳定性查询数", strconv.Itoa(o.stabilityQueryLimit)}, {"环境声明 JSON（可选）", o.environmentFile},
 		{"MO TOML（可选，逗号分隔）", strings.Join(o.moConfigs, ",")}, {"监控配置 JSON（可选）", o.monitoringConfig},
 		{"保留测试库", strconv.FormatBool(o.keepDB)}, {"开始运行", ""},
@@ -250,7 +257,7 @@ func (f *terminalLauncher) request(seed options) (terminalRequest, error) {
 			min, max int
 		}{
 			{launchQueryLimit, &o.queryLimit, 0, 1000000000}, {launchRepeat, &o.repeat, 1, 100000},
-			{launchWarmup, &o.warmup, 0, 10000}, {launchStabilityRepeat, &o.stabilityRepeat, 0, 100000},
+			{launchWarmup, &o.warmup, 0, 10000}, {launchRounds, &o.rounds, 1, 10}, {launchStabilityRepeat, &o.stabilityRepeat, 0, 100000},
 			{launchStabilityLimit, &o.stabilityQueryLimit, 0, 1000000000},
 		} {
 			value, e := strconv.Atoi(text(field.index))
@@ -259,6 +266,22 @@ func (f *terminalLauncher) request(seed options) (terminalRequest, error) {
 			}
 			*field.target = value
 		}
+		for _, field := range []struct {
+			index  int
+			target *time.Duration
+		}{
+			{launchMeasureDuration, &o.measureDuration}, {launchWarmupDuration, &o.warmupDuration}, {launchCooldown, &o.cooldown},
+		} {
+			value, e := time.ParseDuration(text(field.index))
+			if e != nil {
+				return terminalRequest{}, fmt.Errorf("%s：请输入时间，如 30s 或 0s", f.fields[field.index].Label)
+			}
+			*field.target = value
+		}
+		if err := validateMeasurementOptions(o); err != nil {
+			return terminalRequest{}, err
+		}
+
 		o.defaultConcurrency = true
 		o.concurrency, o.concurrencyLevels = 1, []int{1}
 		o.mixedScenarios = nil
@@ -521,7 +544,17 @@ func (f *terminalLauncher) fieldHint() string {
 	case launchConcurrency:
 		return "默认 1 并发；在测试列表勾选 4、8 并发"
 	case launchQueryLimit:
-		return "0 = 全部查询；填正数可缩短测量"
+		return "0 = 全部查询；持续模式限制查询池大小，测量时长另设"
+	case launchMeasureDuration:
+		return "默认 30s；0s 使用按次数模式，过滤和稳定性仍按次数"
+	case launchWarmupDuration:
+		return "默认 10s；预热不计入性能测量，可填 0s"
+	case launchRounds:
+		return "默认 1 轮；正式评测可填 3，导入和建索引只做一次"
+	case launchCooldown:
+		return "默认 3s；仅在轮次之间休息，可填 0s"
+	case launchRepeat:
+		return "仅用于按次数模式和功能/过滤检查；稳定性预算独立"
 	case launchMixed:
 		return "可选；用逗号分隔两路场景 ID"
 	case launchStart:

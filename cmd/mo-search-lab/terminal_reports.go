@@ -277,7 +277,11 @@ func loadTerminalDocument(run terminalRun) (*terminalDocument, error) {
 		returned := 0
 		for _, result := range scenario.Results {
 			if result.SQLSucceeded {
-				returned += len(result.IDs)
+				if scenario.PerformanceMode == "duration" {
+					returned += result.ReturnedRows
+				} else {
+					returned += len(result.IDs)
+				}
 			}
 		}
 		mean := 0.0

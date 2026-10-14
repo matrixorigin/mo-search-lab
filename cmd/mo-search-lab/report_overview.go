@@ -125,7 +125,7 @@ func buildChartOverview(groups []concurrencySeries) chartOverview {
 				value = float64(p.SQLSuccesses-p.AssertionFailures) / float64(p.SQLSuccesses)
 			}
 			if p.QualityMode == "observe" {
-				return value, fmt.Sprintf("成功 SQL %d；SQL 错误 %d", p.SQLSuccesses, p.SQLFailures), p.HasSamples
+				return value, fmt.Sprintf("成功质量样本 %d；SQL 错误 %d", p.QualitySamples, p.SQLFailures), p.QualitySamples > 0
 			}
 			return value, fmt.Sprintf("单查询断言通过 %d/%d；阈值 %.3f", p.SQLSuccesses-p.AssertionFailures, p.SQLSuccesses, p.MinScore), p.HasSamples
 		})

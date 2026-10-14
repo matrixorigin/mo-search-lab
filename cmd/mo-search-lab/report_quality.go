@@ -47,6 +47,9 @@ func buildQueryQualityChart(s ScenarioReport) queryQualityChart {
 	byID := make(map[string]*outcome)
 	var ids []string
 	for _, result := range s.Results {
+		if !qualitySampleAvailable(s, result) {
+			continue
+		}
 		entry := byID[result.ID]
 		if entry == nil {
 			entry = &outcome{}

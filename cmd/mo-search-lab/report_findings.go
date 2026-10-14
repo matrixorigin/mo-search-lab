@@ -42,7 +42,9 @@ func summarizeChecks(r Report) checkSummary {
 			}
 			out.SQLSamples++
 			if s.Oracle == "qrels" || s.Oracle == "ann_recall" {
-				out.QualitySamples++
+				if qualitySampleAvailable(s, result) {
+					out.QualitySamples++
+				}
 			} else if !result.Pass {
 				if s.Oracle == "stable_multiset" {
 					out.StabilityFailures++

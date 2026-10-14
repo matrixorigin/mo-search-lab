@@ -34,6 +34,10 @@ import (
 )
 
 type Profile struct {
+	MeasureDuration     string   `json:"measure_duration,omitempty"`
+	WarmupDuration      string   `json:"warmup_duration,omitempty"`
+	Rounds              int      `json:"rounds,omitempty"`
+	Cooldown            string   `json:"cooldown,omitempty"`
 	QueryLimit          int      `json:"query_limit"`
 	Repeat              int      `json:"repeat"`
 	Concurrency         int      `json:"concurrency"`
@@ -61,17 +65,20 @@ type InputFile struct {
 }
 
 type QueryResult struct {
-	ID           string          `json:"id"`
-	Iteration    int             `json:"iteration"`
-	LatencyMS    float64         `json:"latency_ms"`
-	IDs          []string        `json:"ids,omitempty"`
-	Score        float64         `json:"score"`
-	Pass         bool            `json:"pass"`
-	SQLSucceeded bool            `json:"sql_succeeded"`
-	Error        string          `json:"error,omitempty"`
-	Endpoint     string          `json:"endpoint,omitempty"`
-	Quality      *QualityMetrics `json:"quality,omitempty"`
-	Observations []string        `json:"observations,omitempty"`
+	ReturnedRows   int             `json:"returned_rows,omitempty"`
+	Round          int             `json:"round,omitempty"`
+	QualitySampled bool            `json:"quality_sampled,omitempty"`
+	ID             string          `json:"id"`
+	Iteration      int             `json:"iteration"`
+	LatencyMS      float64         `json:"latency_ms"`
+	IDs            []string        `json:"ids,omitempty"`
+	Score          float64         `json:"score"`
+	Pass           bool            `json:"pass"`
+	SQLSucceeded   bool            `json:"sql_succeeded"`
+	Error          string          `json:"error,omitempty"`
+	Endpoint       string          `json:"endpoint,omitempty"`
+	Quality        *QualityMetrics `json:"quality,omitempty"`
+	Observations   []string        `json:"observations,omitempty"`
 }
 
 type StabilityResult struct {
@@ -87,53 +94,60 @@ type StabilityResult struct {
 }
 
 type ScenarioReport struct {
-	ExecutionMode        string            `json:"execution_mode,omitempty"`
-	BaseScenarioID       string            `json:"base_scenario_id,omitempty"`
-	ID                   string            `json:"id"`
-	Route                string            `json:"route"`
-	Oracle               string            `json:"oracle"`
-	MinScore             float64           `json:"min_score"`
-	TopK                 int               `json:"top_k"`
-	CandidateK           int               `json:"candidate_k"`
-	SQL                  string            `json:"sql,omitempty"`
-	VectorSQL            string            `json:"vector_sql,omitempty"`
-	FulltextSQL          string            `json:"fulltext_sql,omitempty"`
-	SessionSQL           []string          `json:"session_sql,omitempty"`
-	PlanMustContain      map[string]int    `json:"plan_must_contain,omitempty"`
-	ScenarioSHA256       string            `json:"scenario_sha256"`
-	QueriesSHA256        string            `json:"queries_sha256"`
-	SelectedQueries      int               `json:"selected_queries"`
-	Executions           int               `json:"executions"`
-	Failures             int               `json:"failures"`
-	Repetitions          int               `json:"repetitions,omitempty"`
-	SQLSuccesses         int               `json:"sql_successes"`
-	SQLFailures          int               `json:"sql_failures"`
-	AssertionFailures    int               `json:"assertion_failures"`
-	MeasuredSeconds      float64           `json:"measured_seconds"`
-	P50MS                float64           `json:"p50_ms"`
-	P90MS                float64           `json:"p90_ms"`
-	P95MS                float64           `json:"p95_ms"`
-	P99MS                float64           `json:"p99_ms"`
-	QPS                  float64           `json:"qps"`
-	MeanScore            float64           `json:"mean_score"`
-	Plan                 string            `json:"plan,omitempty"`
-	FulltextPlan         string            `json:"fulltext_plan,omitempty"`
-	PlanError            string            `json:"plan_error,omitempty"`
-	Error                string            `json:"error,omitempty"`
-	Results              []QueryResult     `json:"results"`
-	Stability            []StabilityResult `json:"stability,omitempty"`
-	MaxDistinctResults   int               `json:"max_distinct_results"`
-	WorstOverlap         float64           `json:"worst_overlap"`
-	MaxChangedIDs        int               `json:"max_changed_ids"`
-	ExactTruthQueries    int               `json:"exact_truth_queries"`
-	PhysicalPlans        map[string]string `json:"physical_plans,omitempty"`
-	EndpointVersions     map[string]string `json:"endpoint_versions,omitempty"`
-	EffectiveConcurrency int               `json:"effective_concurrency,omitempty"`
-	QualityMode          string            `json:"quality_mode,omitempty"`
-	NDCGGain             string            `json:"ndcg_gain,omitempty"`
-	RelevantGrade        int               `json:"relevant_grade,omitempty"`
-	CheckOrder           bool              `json:"check_order,omitempty"`
-	AllowEmpty           bool              `json:"allow_empty,omitempty"`
+	QualityQueries       int                `json:"quality_queries,omitempty"`
+	PerformanceMode      string             `json:"performance_mode,omitempty"`
+	MeasurementRounds    []MeasurementRound `json:"measurement_rounds,omitempty"`
+	QualitySamples       int                `json:"quality_samples,omitempty"`
+	QPSStdDev            float64            `json:"qps_stddev,omitempty"`
+	QPSVariation         float64            `json:"qps_variation,omitempty"`
+	MeasurementWarnings  []string           `json:"measurement_warnings,omitempty"`
+	ExecutionMode        string             `json:"execution_mode,omitempty"`
+	BaseScenarioID       string             `json:"base_scenario_id,omitempty"`
+	ID                   string             `json:"id"`
+	Route                string             `json:"route"`
+	Oracle               string             `json:"oracle"`
+	MinScore             float64            `json:"min_score"`
+	TopK                 int                `json:"top_k"`
+	CandidateK           int                `json:"candidate_k"`
+	SQL                  string             `json:"sql,omitempty"`
+	VectorSQL            string             `json:"vector_sql,omitempty"`
+	FulltextSQL          string             `json:"fulltext_sql,omitempty"`
+	SessionSQL           []string           `json:"session_sql,omitempty"`
+	PlanMustContain      map[string]int     `json:"plan_must_contain,omitempty"`
+	ScenarioSHA256       string             `json:"scenario_sha256"`
+	QueriesSHA256        string             `json:"queries_sha256"`
+	SelectedQueries      int                `json:"selected_queries"`
+	Executions           int                `json:"executions"`
+	Failures             int                `json:"failures"`
+	Repetitions          int                `json:"repetitions,omitempty"`
+	SQLSuccesses         int                `json:"sql_successes"`
+	SQLFailures          int                `json:"sql_failures"`
+	AssertionFailures    int                `json:"assertion_failures"`
+	MeasuredSeconds      float64            `json:"measured_seconds"`
+	P50MS                float64            `json:"p50_ms"`
+	P90MS                float64            `json:"p90_ms"`
+	P95MS                float64            `json:"p95_ms"`
+	P99MS                float64            `json:"p99_ms"`
+	QPS                  float64            `json:"qps"`
+	MeanScore            float64            `json:"mean_score"`
+	Plan                 string             `json:"plan,omitempty"`
+	FulltextPlan         string             `json:"fulltext_plan,omitempty"`
+	PlanError            string             `json:"plan_error,omitempty"`
+	Error                string             `json:"error,omitempty"`
+	Results              []QueryResult      `json:"results"`
+	Stability            []StabilityResult  `json:"stability,omitempty"`
+	MaxDistinctResults   int                `json:"max_distinct_results"`
+	WorstOverlap         float64            `json:"worst_overlap"`
+	MaxChangedIDs        int                `json:"max_changed_ids"`
+	ExactTruthQueries    int                `json:"exact_truth_queries"`
+	PhysicalPlans        map[string]string  `json:"physical_plans,omitempty"`
+	EndpointVersions     map[string]string  `json:"endpoint_versions,omitempty"`
+	EffectiveConcurrency int                `json:"effective_concurrency,omitempty"`
+	QualityMode          string             `json:"quality_mode,omitempty"`
+	NDCGGain             string             `json:"ndcg_gain,omitempty"`
+	RelevantGrade        int                `json:"relevant_grade,omitempty"`
+	CheckOrder           bool               `json:"check_order,omitempty"`
+	AllowEmpty           bool               `json:"allow_empty,omitempty"`
 }
 
 type Report struct {
@@ -165,7 +179,7 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 	report = Report{
 		ToolVersion: version, Dataset: p.Manifest.Dataset, ManifestSHA256: p.Digest, MeasurementMode: "observe",
 		StartedAt: time.Now().UTC(), Status: "failed", ResourceMetrics: "unavailable",
-		Profile:  Profile{QueryLimit: o.queryLimit, Repeat: o.repeat, Concurrency: o.concurrency, Warmup: o.warmup, Timeout: o.timeout.String(), ConcurrencyLevels: append([]int(nil), o.concurrencyLevels...), StabilityRepeat: o.stabilityRepeat, StabilityQueryLimit: o.stabilityQueryLimit, MixedScenarios: append([]string(nil), o.mixedScenarios...)},
+		Profile:  Profile{MeasureDuration: o.measureDuration.String(), WarmupDuration: o.warmupDuration.String(), Rounds: o.rounds, Cooldown: o.cooldown.String(), QueryLimit: o.queryLimit, Repeat: o.repeat, Concurrency: o.concurrency, Warmup: o.warmup, Timeout: o.timeout.String(), ConcurrencyLevels: append([]int(nil), o.concurrencyLevels...), StabilityRepeat: o.stabilityRepeat, StabilityQueryLimit: o.stabilityQueryLimit, MixedScenarios: append([]string(nil), o.mixedScenarios...)},
 		Cleanup:  "not_started",
 		IndexSQL: append([]string(nil), p.Manifest.Indexes...),
 	}
@@ -482,6 +496,12 @@ func selectIDs(ctx context.Context, db sqlQueryer, statement string, args []any,
 }
 
 func executeQuery(ctx context.Context, db sqlQueryer, s loadedScenario, q query, iteration int, timeout time.Duration) QueryResult {
+	result := executeRawQuery(ctx, db, s, q, iteration, timeout)
+	evaluateRawResult(&result, s, q)
+	return result
+}
+
+func executeRawQuery(ctx context.Context, db sqlQueryer, s loadedScenario, q query, iteration int, timeout time.Duration) QueryResult {
 	result := QueryResult{ID: q.ID, Iteration: iteration}
 	start := time.Now()
 	var ids []string
@@ -528,7 +548,7 @@ func executeQuery(ctx context.Context, db sqlQueryer, s loadedScenario, q query,
 	}
 	result.SQLSucceeded = true
 	result.IDs = ids
-	evaluateRawResult(&result, s, q)
+	result.ReturnedRows = len(ids)
 	return result
 }
 
@@ -627,6 +647,26 @@ func runScenario(ctx context.Context, db *sql.DB, s loadedScenario, o options, c
 			return report
 		}
 	}
+	if timedPerformance(s, o) {
+		prepared := make([][]any, len(queries))
+		for i, q := range queries {
+			var err error
+			prepared[i], err = argsFor(q, s.Args)
+			if err != nil {
+				report.Error = err.Error()
+				report.Failures = 1
+				return report
+			}
+		}
+		execute := func(worker, index int) []QueryResult {
+			qIndex := index % len(queries)
+			return []QueryResult{preparedSQLQuery(ctx, queryers[worker], s, queries[qIndex].ID, prepared[qIndex], index/len(queries), o.timeout)}
+		}
+		runTimedMeasurement(ctx, []*ScenarioReport{&report}, []loadedScenario{s}, [][]query{queries}, o, execute)
+		return report
+	}
+	report.PerformanceMode = "count"
+
 	for i := 0; i < o.warmup; i++ {
 		_ = executeQuery(ctx, queryers[i%len(queryers)], s, queries[i%len(queries)], -1, o.timeout)
 	}
@@ -644,7 +684,7 @@ func runScenario(ctx context.Context, db *sql.DB, s loadedScenario, o options, c
 				if len(o.mixedScenarios) > 0 && s.Route == "sql" {
 					report.Results[j.index] = rawSQLQuery(ctx, queryer, s, queries[j.queryIndex], j.iteration, o.timeout)
 				} else {
-					report.Results[j.index] = executeQuery(ctx, queryer, s, queries[j.queryIndex], j.iteration, o.timeout)
+					report.Results[j.index] = executeRawQuery(ctx, queryer, s, queries[j.queryIndex], j.iteration, o.timeout)
 				}
 			}
 		}()
@@ -657,10 +697,8 @@ func runScenario(ctx context.Context, db *sql.DB, s loadedScenario, o options, c
 	close(jobs)
 	wg.Wait()
 	elapsed := time.Since(start).Seconds()
-	if len(o.mixedScenarios) > 0 && s.Route == "sql" {
-		for index := range report.Results {
-			evaluateRawResult(&report.Results[index], s, queries[index%len(queries)])
-		}
+	for index := range report.Results {
+		evaluateRawResult(&report.Results[index], s, queries[index%len(queries)])
 	}
 	aggregateScenarioResults(&report, elapsed)
 	return report
@@ -670,6 +708,7 @@ func aggregateScenarioResults(report *ScenarioReport, elapsed float64) {
 	report.Executions = len(report.Results)
 	report.MeasuredSeconds = elapsed
 	var sqlSucceeded int
+	qualityIDs := make(map[string]bool)
 	latencies := make([]float64, 0, len(report.Results))
 	for _, result := range report.Results {
 		if !result.Pass {
@@ -684,15 +723,22 @@ func aggregateScenarioResults(report *ScenarioReport, elapsed float64) {
 		if result.SQLSucceeded {
 			sqlSucceeded++
 			latencies = append(latencies, result.LatencyMS)
-			report.MeanScore += result.Score
+			if qualitySampleAvailable(*report, result) {
+				report.MeanScore += result.Score
+				report.QualitySamples++
+				qualityIDs[result.ID] = true
+			}
 		}
 	}
 	report.SQLSuccesses = sqlSucceeded
+	report.QualityQueries = len(qualityIDs)
 	if elapsed > 0 {
 		report.QPS = float64(sqlSucceeded) / elapsed
 	}
 	if sqlSucceeded > 0 {
-		report.MeanScore /= float64(sqlSucceeded)
+		if report.QualitySamples > 0 {
+			report.MeanScore /= float64(report.QualitySamples)
+		}
 		setLatencyPercentiles(report, latencies)
 	}
 }

@@ -143,7 +143,7 @@ func renderSelectedReportHTML(w io.Writer, report Report, selection reportSelect
 	}
 	body += matrixHTML
 
-	t, err := template.New("report").Funcs(template.FuncMap{"scenarioName": scenarioDisplayName, "stabilitySummary": stabilityChangeSummary, "legacyName": legacyApplicationName.MatchString}).Parse(body)
+	t, err := template.New("report").Funcs(template.FuncMap{"scenarioName": scenarioDisplayName, "stabilitySummary": stabilityChangeSummary, "legacyName": legacyApplicationName.MatchString, "measurementChart": buildMeasurementChart, "stopReason": measurementStopReason}).Parse(body + measurementHTML)
 	if err != nil {
 		return err
 	}

@@ -131,6 +131,8 @@ func makeSelectedReportView(report Report, selection reportSelection) (reportVie
 		counts := make(map[string]StabilityResult)
 		s.SQLFailures, s.AssertionFailures, s.SQLSuccesses = 0, 0, 0
 		s.MeanScore = 0
+		s.QualitySamples = 0
+		qualityIDs := make(map[string]bool)
 		latencies := make([]float64, 0, len(s.Results))
 		for _, result := range s.Results {
 			count := counts[result.ID]
@@ -157,12 +159,19 @@ func makeSelectedReportView(report Report, selection reportSelection) (reportVie
 			if result.Score < 0 || result.Score > 1 || math.IsNaN(result.Score) || math.IsInf(result.Score, 0) {
 				return reportView{}, fmt.Errorf("scenario %s has an invalid quality score", s.ID)
 			}
-			s.MeanScore += result.Score
+			if qualitySampleAvailable(*s, result) {
+				s.MeanScore += result.Score
+				s.QualitySamples++
+				qualityIDs[result.ID] = true
+			}
 			latencies = append(latencies, result.LatencyMS)
 		}
+		s.QualityQueries = len(qualityIDs)
 		row := latencyRow{ID: s.ID, Concurrency: s.EffectiveConcurrency, SessionSQL: s.SessionSQL, Samples: len(latencies)}
 		if len(latencies) > 0 {
-			s.MeanScore /= float64(s.SQLSuccesses)
+			if s.QualitySamples > 0 {
+				s.MeanScore /= float64(s.QualitySamples)
+			}
 			view.HasLatencySamples = true
 			setLatencyPercentiles(s, latencies)
 			row.Bars = []latencyBar{{Label: "P90", Value: s.P90MS, Y: 5}, {Label: "P95", Value: s.P95MS, Y: 35}, {Label: "P99", Value: s.P99MS, Y: 65}}
@@ -195,7 +204,11 @@ func makeSelectedReportView(report Report, selection reportSelection) (reportVie
 	for i := 0; i <= 4; i++ {
 		view.LatencyTicks = append(view.LatencyTicks, latencyTick{X: float64(i) * 160, Value: axisMaximum * (float64(i) / 4)})
 	}
-	if len(report.Profile.ConcurrencyLevels) > 0 || len(levels) > 0 {
+	hasMeasurementRounds := false
+	for _, s := range view.Scenarios {
+		hasMeasurementRounds = hasMeasurementRounds || len(s.MeasurementRounds) > 0
+	}
+	if len(report.Profile.ConcurrencyLevels) > 0 || len(levels) > 0 || hasMeasurementRounds {
 		var err error
 		view.ConcurrencySeries, err = buildConcurrencySeries(view.Scenarios)
 		if err != nil {
