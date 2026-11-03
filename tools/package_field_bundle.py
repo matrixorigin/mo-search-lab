@@ -203,7 +203,7 @@ in each pack's source.json.
         (output / "SHA256SUMS").write_text("".join(f"{sha256(p)}  {p.name}\n"
             for p in [output / "archive.sha256", *parts]))
         setup, replaced = re.subn(r"^version='v[0-9]+\.[0-9]+\.[0-9]+'$", f"version='{version}'",
-                                 (repo / "scripts" / "setup.sh").read_text(), count=1, flags=re.MULTILINE)
+                                 (repo / "scripts" / "setup-data.sh").read_text(), count=1, flags=re.MULTILINE)
         if replaced != 1:
             raise ValueError("installer version marker is missing")
         (output / "setup.sh").write_text(setup)

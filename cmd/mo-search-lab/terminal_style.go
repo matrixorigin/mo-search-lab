@@ -105,7 +105,7 @@ func (m *terminalModel) frame(header, body, footer []terminalRow) string {
 }
 
 func terminalFieldLabel(index int) string {
-	labels := []string{"执行任务", "地址", "端口", "账号", "密码", "测试项目", "报告目录", "更多设置", "查询数量", "并发档位", "两路同时查询", "单查询超时", "按次数模式重复", "按次数模式预热", "每轮测量时长", "每轮预热时长", "性能测量轮数", "轮间休息时长", "重复稳定性次数", "稳定性查询数", "环境声明", "MO 配置 (TOML)", "监控配置", "保留测试库", "开始运行"}
+	labels := []string{"执行任务", "地址", "端口", "账号", "密码", "测试项目", "报告目录", "3.0.4 兼容", "更多设置", "查询数量", "并发档位", "两路同时查询", "单查询超时", "按次数模式重复", "按次数模式预热", "每轮测量时长", "每轮预热时长", "性能测量轮数", "轮间休息时长", "重复稳定性次数", "稳定性查询数", "环境声明", "MO 配置 (TOML)", "监控配置", "保留测试库", "开始运行"}
 	return labels[index]
 }
 
@@ -117,6 +117,8 @@ func terminalFieldGroup(index int) string {
 		return "连接 MO"
 	case index <= launchReports:
 		return "数据与报告"
+	case index == launchCompat304:
+		return "版本兼容"
 	case index == launchAdvanced:
 		return "更多设置"
 	case index <= launchStabilityLimit:
@@ -146,7 +148,7 @@ func (f *terminalLauncher) displayValue(index int) string {
 			return "[-] 收起"
 		}
 		return "[+] 展开"
-	case launchKeepDB:
+	case launchKeepDB, launchCompat304:
 		if value == "true" {
 			return "是"
 		}

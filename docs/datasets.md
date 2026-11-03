@@ -1,6 +1,6 @@
-# 统一离线资源包
+# 测试数据
 
-[下载 v0.14.1 完整资源](https://github.com/matrixorigin/mo-search-lab/releases/tag/v0.14.1)。工具和四项常用测试数据统一交付：
+数据固定来自 [v0.14.1 数据资源](https://github.com/matrixorigin/mo-search-lab/releases/tag/v0.14.1)。安装脚本自动获取当前工具及以下测试数据；工具升级不重新下载数据：
 
 | 安装目录 | 测试 |
 | --- | --- |
@@ -13,7 +13,7 @@
 安装只需：
 
 ```bash
-curl -fL https://github.com/matrixorigin/mo-search-lab/releases/download/v0.14.1/setup.sh -o setup.sh
+curl -fL https://github.com/matrixorigin/mo-search-lab/releases/latest/download/setup.sh -o setup.sh
 bash setup.sh
 ```
 

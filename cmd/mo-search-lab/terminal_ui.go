@@ -474,6 +474,9 @@ func (m *terminalModel) reportHeaderRows() []terminalRow {
 		tone = toneWarning
 	}
 	rows = append(rows, terminalRow{Text: "  原始整体判定: " + status, Tone: tone})
+	if m.doc != nil && m.doc.View.Profile.Compat304 {
+		rows = append(rows, terminalRow{Text: "  MO 3.0.4 兼容 · 过滤采用旧版默认策略", Tone: toneWarning})
+	}
 	if m.height >= 18 {
 		caption := fmt.Sprintf("  运行 %s  ·  报告 %d/%d  ·  ←→ 切报告", history.StartedAt.Format("01-02 15:04 UTC"), reportIndex+1, len(history.Entries))
 		if !inspection {

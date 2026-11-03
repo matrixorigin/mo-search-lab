@@ -43,10 +43,20 @@ func timedPerformance(s loadedScenario, o options) bool {
 	if o.measureDuration <= 0 || s.Route != "sql" || s.Oracle != "ann_recall" && s.Oracle != "qrels" {
 		return false
 	}
-	if filteredScenario(s) {
+	if filterCheckScenario(s, o) {
 		return false
 	}
 	return true
+}
+
+// A filtered route selected for paired performance also needs timed isolated
+// baselines and the requested concurrency. Standalone filter checks stay serial.
+func filterCheckScenario(s loadedScenario, o options) bool {
+	if len(o.mixedScenarios) == 2 && o.mixedScenarios[0] != o.mixedScenarios[1] &&
+		(s.ID == o.mixedScenarios[0] || s.ID == o.mixedScenarios[1]) {
+		return false
+	}
+	return filteredScenario(s)
 }
 
 func filteredScenario(s loadedScenario) bool {

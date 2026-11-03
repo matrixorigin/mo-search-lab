@@ -367,6 +367,10 @@ func makeSQLConfig(o options) *mysql.Config {
 	config.Timeout, config.ReadTimeout, config.WriteTimeout = o.timeout, o.timeout*10, o.timeout*10
 	config.AllowNativePasswords, config.InterpolateParams = true, true
 	config.Params = map[string]string{"charset": "utf8mb4"}
+	if o.compat304 {
+		config.Params["experimental_ivf_index"] = "1"
+		config.Params["experimental_fulltext_index"] = "1"
+	}
 	return config
 }
 
@@ -379,6 +383,7 @@ func inspectEnvironment(ctx context.Context, o options) (report Report, err erro
 		return report, err
 	}
 	report = Report{RunKind: "environment_inspection", Dataset: "environment-inspection", ToolVersion: version, StartedAt: time.Now().UTC(), Status: "failed", Cleanup: "not_applicable", ResourceMetrics: "unavailable", Environment: newEnvironmentEvidence(inputs), Profile: Profile{SQLAddress: sqlAddress(o), Timeout: o.timeout.String()}}
+	report.Profile.Compat304 = o.compat304
 	defer func() {
 		report.FinishedAt = time.Now().UTC()
 		if err != nil {

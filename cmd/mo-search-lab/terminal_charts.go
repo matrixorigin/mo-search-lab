@@ -334,6 +334,9 @@ func (m *terminalModel) sqlLines() []string {
 		identityLabel = "场景标识（显示别名）: "
 	}
 	lines := []string{fmt.Sprintf("场景 %s / C%d / %s / %s", scenarioDisplayName(s.ID), s.EffectiveConcurrency, s.Route, s.Oracle), "n / b 切换场景；此页不受 c 键筛选。", "", identityLabel + s.ID, "", "测量 SQL", s.SQL}
+	for _, source := range s.CompatibilitySources {
+		lines = append(lines, "兼容前场景 · "+source.ID, "原始 SHA-256 · "+source.SHA256, source.SQL)
+	}
 	if s.VectorSQL != "" {
 		lines = append(lines, "向量 SQL", s.VectorSQL, "全文 SQL", s.FulltextSQL)
 	}

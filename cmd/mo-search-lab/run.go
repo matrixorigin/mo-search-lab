@@ -34,6 +34,7 @@ import (
 )
 
 type Profile struct {
+	Compat304           bool     `json:"compat_3_0_4,omitempty"`
 	MeasureDuration     string   `json:"measure_duration,omitempty"`
 	WarmupDuration      string   `json:"warmup_duration,omitempty"`
 	Rounds              int      `json:"rounds,omitempty"`
@@ -94,6 +95,7 @@ type StabilityResult struct {
 }
 
 type ScenarioReport struct {
+	CompatibilitySources []ScenarioSource   `json:"compatibility_sources,omitempty"`
 	QualityQueries       int                `json:"quality_queries,omitempty"`
 	PerformanceMode      string             `json:"performance_mode,omitempty"`
 	MeasurementRounds    []MeasurementRound `json:"measurement_rounds,omitempty"`
@@ -183,6 +185,7 @@ func runBenchmark(ctx context.Context, p *pack, o options) (report Report, runEr
 		Cleanup:  "not_started",
 		IndexSQL: append([]string(nil), p.Manifest.Indexes...),
 	}
+	report.Profile.Compat304 = o.compat304
 	var info struct {
 		Name string `json:"name"`
 	}
@@ -561,7 +564,7 @@ func initialScenarioReport(s loadedScenario, o options) ScenarioReport {
 	if o.queryLimit > 0 {
 		selected = min(selected, o.queryLimit)
 	}
-	return ScenarioReport{ID: s.ID, Route: s.Route, Oracle: s.Oracle, TopK: s.TopK, CandidateK: s.CandidateK, SQL: s.SQL, VectorSQL: s.VectorSQL, SessionSQL: s.SessionSQL, SelectedQueries: selected,
+	return ScenarioReport{CompatibilitySources: s.CompatibilitySources, ID: s.ID, Route: s.Route, Oracle: s.Oracle, TopK: s.TopK, CandidateK: s.CandidateK, SQL: s.SQL, VectorSQL: s.VectorSQL, SessionSQL: s.SessionSQL, SelectedQueries: selected,
 		FulltextSQL: s.FulltextSQL, ScenarioSHA256: s.Digest, QueriesSHA256: s.QueryDigest, EffectiveConcurrency: o.concurrency, Repetitions: o.repeat,
 		QualityMode: "observe", NDCGGain: s.NDCGGain, RelevantGrade: s.RelevantGrade, CheckOrder: s.Oracle == "stable_multiset" || s.CheckOrder, AllowEmpty: s.AllowEmpty}
 }

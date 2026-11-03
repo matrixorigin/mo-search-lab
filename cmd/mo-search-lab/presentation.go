@@ -73,6 +73,7 @@ func scenarioDisplayName(id string) string {
 		for _, rule := range []struct{ prefix, label string }{
 			{"vector_pre_", "先过滤 · 可见 %d%%"},
 			{"vector_post_", "后过滤 · 可见 %d%%"},
+			{"vector_default_", "旧版默认过滤 · 可见 %d%%"},
 			{"vector_nprobe_", "向量检索 · 探测 %d 组"},
 		} {
 			if strings.HasPrefix(base, rule.prefix) {

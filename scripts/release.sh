@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-version=${1:-v0.14.1}
+version=${1:-v0.15.0}
 target_os=${2:-linux}
 target_arch=${3:-amd64}
 for component in "$version" "$target_os" "$target_arch"; do
@@ -23,6 +23,8 @@ GOWORK=off CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
 cp README.md LICENSE NOTICE "$bundle/"
 cp -R docs "$bundle/"
 cp -R cmd/mo-search-lab/testdata/smoke "$bundle/packs/smoke"
+commit=$(git rev-parse HEAD)
+printf '{"version":"%s","source_commit":"%s","data_release":"v0.14.1"}\n' "$version" "$commit" > "$bundle/TOOL.json"
 (
   cd "$bundle"
   find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
@@ -34,3 +36,8 @@ mv "$stage/$name.tar.gz" "dist/$name.tar.gz"
   sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
 )
 echo "release: dist/$name.tar.gz"
+if [[ "$target_os" == linux && "$target_arch" == amd64 ]]; then
+  sed "s/^version='v[0-9]*\.[0-9]*\.[0-9]*'$/version='$version'/" scripts/setup.sh > dist/setup.sh
+  chmod +x dist/setup.sh
+  (cd dist && sha256sum "$name.tar.gz" setup.sh > SHA256SUMS)
+fi

@@ -27,6 +27,7 @@ func registerConnectionFlags(fs *flag.FlagSet, o *options) {
 	fs.IntVar(&o.port, "port", 6001, "MO SQL 端口")
 	fs.StringVar(&o.user, "user", "root", "MO SQL 账号")
 	fs.StringVar(&o.password, "password", "", "MO SQL 密码；省略为空，UI 遮蔽显示，不写入报告")
+	fs.BoolVar(&o.compat304, "compat-3-0-4", false, "使用 MO 3.0.4 语法和会话开关；过滤采用旧版默认策略，不区分强制 pre/post")
 	fs.DurationVar(&o.timeout, "timeout", 3*time.Minute, "单条 SQL/执行计划超时；性能测试的导入和建索引使用此预算的 10 倍")
 }
 
@@ -49,7 +50,7 @@ func registerRunFlags(fs *flag.FlagSet, o *options) (levels, mixed, endpoints *s
 	fs.IntVar(&o.stabilityRepeat, "stability-repeat", 30, "每条稳定性查询重复次数；0 继承 --repeat，需满足包内最小重复数")
 	fs.IntVar(&o.stabilityQueryLimit, "stability-query-limit", 5, "稳定性查询数上限；0 继承 --query-limit")
 	fs.IntVar(&o.warmup, "warmup", 5, "按次数模式每个场景/并发档位的预热次数，不计入测量")
-	fs.DurationVar(&o.measureDuration, "measure-duration", 30*time.Second, "普通性能场景每轮持续测量时间；0 使用 --repeat 按次数执行，过滤和稳定性仍按次数")
+	fs.DurationVar(&o.measureDuration, "measure-duration", 30*time.Second, "普通及两路性能场景每轮测量时间；0 使用 --repeat 按次数执行，独立过滤和稳定性检查仍按次数")
 	fs.DurationVar(&o.warmupDuration, "warmup-duration", 10*time.Second, "持续测量每轮预热时间，不计入性能；允许 0")
 	fs.IntVar(&o.rounds, "rounds", 1, "持续性能测量轮数，1..10；正式评测可用 3，导入和建索引只执行一次")
 	fs.DurationVar(&o.cooldown, "cooldown", 3*time.Second, "持续测量轮间休息时间，不计入性能；允许 0")

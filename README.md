@@ -8,19 +8,23 @@ MO 全文与向量能力的性能评测、问题复现和调查工具。连接�
 
 完整流程见 [现场部署与测试手册](docs/handbook.md)。
 
-在能访问 GitHub 的 Linux x86_64 机器上，用统一资源包安装工具和全部四项常用测试数据：
+在能访问 GitHub 的 Linux x86_64 机器上，安装工具和全部四项常用测试数据：
 
 ```bash
-curl -fL https://github.com/matrixorigin/mo-search-lab/releases/download/v0.14.1/setup.sh -o setup.sh
+curl -fL https://github.com/matrixorigin/mo-search-lab/releases/latest/download/setup.sh -o setup.sh
 bash setup.sh
-cd mo-search-lab-v0.14.1-linux-amd64
+cd mo-search-lab
 ./mo-search-lab ui --launch --reports reports \
   --host 10.0.0.10 --port 6001 --user BENCH_USER --password '你的密码'
 ```
 
 替换 MO SQL 连接信息即可。安装脚本自动下载、断点续传、校验和解压。下载约 4 GB，CSV 唯一内容约 15.72 GB，MO 的数据/索引存储另计。
 
-离线现场可直接携带整个安装目录，或携带 Release 全部附件执行 `bash setup.sh --offline`。性能测试账号需要建库、建表、建索引、导入、查询及删库权限。
+离线现场直接携带整个安装目录。性能测试账号需要建库、建表、建索引、导入、查询及删库权限。
+
+**升级已有安装**：进入原安装目录，重新下载上述 `setup.sh` 并执行 `bash setup.sh`；仅更新程序和文档，保留测试数据与历史报告。升级包约 5 MB。离线升级时，将新 Release 的三个附件放在一起，执行 `bash /附件目录/setup.sh /原安装目录 --offline`。
+
+MO 3.0.4 使用 `ui --compat-3-0-4` 或表单中的兼容开关；过滤采用旧版默认策略，详情见 [手册](docs/handbook.md#mo-304)。
 
 ### 选择并运行测试
 
@@ -164,7 +168,7 @@ CONN=(--host 10.0.0.10 --port 6001 --user BENCH_USER --password '你的密码')
 
 ## 数据包
 
-[v0.14.1 完整资源 Release](https://github.com/matrixorigin/mo-search-lab/releases/tag/v0.14.1) 统一包含工具与四项常用测试。`packs/vector` 为向量性能与召回，`packs/filter` 为串行过滤检查，`packs/fulltext` 为全文检索，`packs/dual-query` 为两路同时查询。另附 `packs/smoke` 流程样本。
+安装脚本自动获取当前工具，并复用 [v0.14.1 固定数据资源](https://github.com/matrixorigin/mo-search-lab/releases/tag/v0.14.1)。数据包和真值不随工具升级改变。`packs/vector` 为向量性能与召回，`packs/filter` 为串行过滤检查，`packs/fulltext` 为全文检索，`packs/dual-query` 为两路同时查询。另附 `packs/smoke` 流程样本。
 
 数据来源与规模见 [数据包说明](docs/datasets.md)。发布归档保留共享 CSV 的硬链接、来源和输入校验和。
 

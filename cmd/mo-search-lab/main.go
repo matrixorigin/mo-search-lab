@@ -33,6 +33,7 @@ type options struct {
 	port                int
 	user                string
 	password            string // Never serialized into reports.
+	compat304           bool
 	reportDir           string
 	queryLimit          int
 	repeat              int

@@ -110,6 +110,8 @@ func TestDurationPlannerKeepsFiltersSerialAndBoundsPairedEvidence(t *testing.T) 
 	vector := loadedScenario{scenario: scenario{ID: "vector", Route: "sql", Oracle: "ann_recall", TopK: 100}, QueriesData: queries}
 	text := vector
 	text.ID, text.Oracle = "fulltext", "qrels"
+	text.QueriesData = make([]query, len(queries))
+	vector.QueriesData[0].AllowedIDRanges = [][2]int64{{0, 99999}}
 	filter := vector
 	filter.ID = "filter"
 	filter.QueriesData = []query{{AllowedIDRanges: [][2]int64{{0, 9}}}}
@@ -124,9 +126,15 @@ func TestDurationPlannerKeepsFiltersSerialAndBoundsPairedEvidence(t *testing.T) 
 	if err := validateMixedSelection([]loadedScenario{vector, text, filter, stable}, o, runs); err != nil {
 		t.Fatal(err)
 	}
+	if len(runs) != 8 || len(mixedProfiles(runs, o)) != 3 {
+		t.Fatalf("filtered performance lost requested concurrency levels: %d runs", len(runs))
+	}
 	executions, ids := 0, 0
 	count := func(run scenarioRun) {
-		if timedPerformance(run.Scenario, run.Options) {
+		if run.Scenario.ID == "vector" || run.Scenario.ID == "fulltext" {
+			if !timedPerformance(run.Scenario, run.Options) || run.Options.measurementLimit < 1 || run.Options.qualityQueryLimit < 1 {
+				t.Fatal("paired performance or its baseline did not receive a duration budget")
+			}
 			executions += run.Options.measurementLimit
 			ids += min(len(run.Scenario.QueriesData), run.Options.qualityQueryLimit) * 3 * 100
 		} else {
@@ -146,6 +154,67 @@ func TestDurationPlannerKeepsFiltersSerialAndBoundsPairedEvidence(t *testing.T) 
 	}
 	if executions > 100000 || ids > 1000000 {
 		t.Fatalf("global retention not bounded: %d requests %d IDs", executions, ids)
+	}
+}
+
+func TestFilteredMixedAndBaselinesUseSameMeasurementMode(t *testing.T) {
+	for _, mode := range []string{"duration", "count"} {
+		t.Run(mode, func(t *testing.T) {
+			seed := mixedTestPair()
+			seed[0].Scenario.Oracle = "ann_recall"
+			seed[0].Scenario.QueriesData[0].AllowedIDRanges = [][2]int64{{0, 9}}
+			seed[1].Scenario.Oracle = "qrels"
+			seed[1].Scenario.QueriesData[0].Relevance = map[string]int{"1": 2}
+			scenarios := []loadedScenario{seed[0].Scenario, seed[1].Scenario}
+			o := defaultTerminalOptions()
+			o.mixedScenarios = []string{"V", "T"}
+			if mode == "count" {
+				o.measureDuration = 0
+				o.concurrencyLevels = []int{1, 4, 8}
+			}
+			runs, err := planScenarioRuns(scenarios, o)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := validateMixedSelection(scenarios, o, runs); err != nil {
+				t.Fatal(err)
+			}
+			if len(runs) != 2*len(o.concurrencyLevels) || len(mixedProfiles(runs, o)) != len(o.concurrencyLevels) {
+				t.Fatal("paired route or baseline lost a concurrency level")
+			}
+			state := &mixedTestState{started: make(chan string, 4), release: make(chan struct{})}
+			close(state.release)
+			db := sql.OpenDB(mixedTestConnector{state})
+			db.SetMaxOpenConns(2)
+			db.SetMaxIdleConns(0)
+			defer db.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			// Exercise the default serial baseline and pair with bounded samples
+			// instead of waiting for the default 30-second measurement window.
+			for i := range runs {
+				runs[i].Options.warmup, runs[i].Options.warmupDuration = 0, 0
+				runs[i].Options.measurementLimit, runs[i].Options.qualityQueryLimit = 1, 1
+			}
+			pair := mixedProfiles(runs, o)[0]
+			var reports []ScenarioReport
+			for _, run := range pair {
+				reports = append(reports, runScenario(ctx, db, run.Scenario, run.Options, makeSQLConfig(run.Options)))
+			}
+			mixed := runMixedScenarios(ctx, db, pair)
+			reports = append(reports, mixed[:]...)
+			for _, report := range reports {
+				if report.Error != "" || report.Failures != 0 || report.PerformanceMode != mode || report.Executions != 1 || report.SQLSuccesses != 1 || report.MeanScore != 1 {
+					t.Fatalf("baseline/mixed measurement disagrees: %+v", report)
+				}
+				if (len(report.MeasurementRounds) == 1) != (mode == "duration") {
+					t.Fatal("report used the wrong measurement mode")
+				}
+			}
+			if db.Stats().InUse != 0 || mixed[0].MeasuredSeconds != mixed[1].MeasuredSeconds {
+				t.Fatal("mixed routes leaked a connection or used different clocks")
+			}
+		})
 	}
 }
 

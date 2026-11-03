@@ -47,6 +47,7 @@ const (
 	launchPassword
 	launchPack
 	launchReports
+	launchCompat304
 	launchAdvanced
 	launchQueryLimit
 	launchConcurrency
@@ -151,6 +152,7 @@ func (m *terminalModel) openLauncher() {
 	m.launcher = &terminalLauncher{packs: packs, inspecting: m.launchInspect || len(packs) == 0 && o.pack == "", fields: []launchField{
 		{"任务", ""}, {"SQL 地址", o.host}, {"SQL 端口", strconv.Itoa(o.port)}, {"账号", o.user},
 		{"密码", o.password}, {"数据包", o.pack}, {"报告目录", m.reportsRoot},
+		{"MO 3.0.4 兼容模式", strconv.FormatBool(o.compat304)},
 		{"更多设置", ""}, {"每场景查询数（0 = 全部）", strconv.Itoa(o.queryLimit)},
 		{"并发（留空 = 自动）", levels}, {"同时运行的两路场景（可选）", strings.Join(o.mixedScenarios, ",")},
 		{"单查询超时", o.timeout.String()}, {"每条查询测量次数", strconv.Itoa(o.repeat)},
@@ -231,6 +233,7 @@ func (f *terminalLauncher) request(seed options) (terminalRequest, error) {
 		return terminalRequest{}, fmt.Errorf("超时需为正数，如 3m")
 	}
 	o.password = f.fields[launchPassword].Value
+	o.compat304 = text(launchCompat304) == "true"
 	o.environmentFile, o.monitoringConfig = text(launchEnvironment), text(launchMonitoring)
 	o.moConfigs = nil
 	for _, path := range strings.Split(text(launchConfigs), ",") {
@@ -405,7 +408,7 @@ func (m *terminalModel) updateLauncher(msg tea.KeyMsg) tea.Cmd {
 			f.inspecting = !f.inspecting
 		case launchAdvanced:
 			f.advanced = !f.advanced
-		case launchKeepDB:
+		case launchKeepDB, launchCompat304:
 			if f.fields[f.focus].Value == "true" {
 				f.fields[f.focus].Value = "false"
 			} else {
@@ -541,6 +544,8 @@ func (f *terminalLauncher) fieldHint() string {
 		return "Enter 勾选测试与可选并发；p 指定路径"
 	case launchAdvanced:
 		return "Enter 展开或收起测量与环境设置"
+	case launchCompat304:
+		return "Enter 开关；连接 MO 3.0.4 时开启，过滤采用旧版默认策略"
 	case launchConcurrency:
 		return "默认 1 并发；在测试列表勾选 4、8 并发"
 	case launchQueryLimit:

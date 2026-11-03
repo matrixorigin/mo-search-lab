@@ -87,9 +87,10 @@ type query struct {
 
 type loadedScenario struct {
 	scenario
-	QueriesData []query
-	Digest      string
-	QueryDigest string
+	CompatibilitySources []ScenarioSource
+	QueriesData          []query
+	Digest               string
+	QueryDigest          string
 }
 
 type pack struct {

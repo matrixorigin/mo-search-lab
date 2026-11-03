@@ -57,6 +57,11 @@ func parseConcurrencyLevels(raw string) ([]int, error) {
 // Expand profiles before creating the test database. Execution remains serial
 // between profiles and reuses the existing per-scenario workers and cleanup.
 func planScenarioRuns(scenarios []loadedScenario, o options) ([]scenarioRun, error) {
+	var err error
+	scenarios, err = compatibleScenarios(scenarios, o)
+	if err != nil {
+		return nil, err
+	}
 	if err := validateMeasurementOptions(o); err != nil {
 		return nil, err
 	}
@@ -81,7 +86,7 @@ func planScenarioRuns(scenarios []loadedScenario, o options) ([]scenarioRun, err
 	var totalExecutions, totalIDs int
 	for _, s := range scenarios {
 		profiles := levels
-		if s.Oracle == "stable_multiset" || filteredScenario(s) {
+		if s.Oracle == "stable_multiset" || filterCheckScenario(s, o) {
 			profiles = []int{1}
 		}
 		for _, level := range profiles {

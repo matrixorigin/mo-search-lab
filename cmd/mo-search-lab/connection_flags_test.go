@@ -21,7 +21,7 @@ func TestDirectPasswordFlagsAndUISeed(t *testing.T) {
 			} else {
 				registerConnectionFlags(fs, &o)
 			}
-			if err := fs.Parse([]string{"--password", password}); err != nil {
+			if err := fs.Parse([]string{"--host", "192.0.2.10", "--port", "16001", "--user", "bench", "--password", password}); err != nil {
 				t.Fatal(err)
 			}
 			if got := makeSQLConfig(o).Passwd; got != password {
@@ -33,12 +33,15 @@ func TestDirectPasswordFlagsAndUISeed(t *testing.T) {
 			if m.launcher.fields[launchPassword].Value != password {
 				t.Fatal("command password did not pre-fill UI")
 			}
+			if m.launcher.fields[launchHost].Value != "192.0.2.10" || m.launcher.fields[launchPort].Value != "16001" || m.launcher.fields[launchUser].Value != "bench" {
+				t.Fatal("connection flags did not pre-fill UI")
+			}
 			if password != "" && strings.Contains(m.View(), password) {
 				t.Fatal("UI displayed command password")
 			}
 			request, err := m.launcher.request(m.launchSeed)
-			if err != nil || makeSQLConfig(request.Options).Passwd != password {
-				t.Fatal("UI altered command password", err)
+			if err != nil || makeSQLConfig(request.Options).Passwd != password || request.Options.host != "192.0.2.10" || request.Options.port != 16001 || request.Options.user != "bench" {
+				t.Fatal("UI altered command connection options", err)
 			}
 			m.closeTask()
 			if m.launchSeed.password != "" || m.launcher.fields[launchPassword].Value != "" {

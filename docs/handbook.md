@@ -5,16 +5,16 @@
 在能访问 GitHub 的 **Linux x86_64** 机器上执行：
 
 ```bash
-curl -fL https://github.com/matrixorigin/mo-search-lab/releases/download/v0.14.1/setup.sh -o setup.sh
+curl -fL https://github.com/matrixorigin/mo-search-lab/releases/latest/download/setup.sh -o setup.sh
 bash setup.sh
 ```
 
-脚本会自动下载完整资源、校验、解压。中断后重新执行 `bash setup.sh`，已完成的附件不重复下载。安装不需要 root、Go、Python、ES 或模型。
+首次安装时，脚本自动获取当前工具与 v0.14.1 固定数据资源、校验并解压。中断后重新执行 `bash setup.sh`，已完成的数据附件不重复下载。默认安装到当前目录下的 `mo-search-lab/`；可以用 `bash setup.sh /安装目录` 指定位置。安装不需要 root、Go、Python、ES 或模型。
 
 安装结果：
 
 ```text
-mo-search-lab-v0.14.1-linux-amd64/
+mo-search-lab/
   mo-search-lab
   packs/
     vector/       # GIST1M 向量性能、召回、重复稳定性
@@ -23,7 +23,8 @@ mo-search-lab-v0.14.1-linux-amd64/
     dual-query/   # 向量、全文两路同时查询
     smoke/        # 8 行流程检查
   docs/
-  BUNDLE.json     # 版本、来源提交、测试包身份
+  TOOL.json       # 当前工具版本、来源提交
+  BUNDLE.json     # 固定数据资源的原始版本与测试包身份
   DATASETS.md     # 公开数据来源与许可说明
 ```
 
@@ -34,7 +35,7 @@ mo-search-lab-v0.14.1-linux-amd64/
 需要一个可访问的 MO SQL 服务，测试账号允许建库、建表、建索引、导入、查询和删除本次测试库。
 
 ```bash
-cd mo-search-lab-v0.14.1-linux-amd64
+cd mo-search-lab
 ./mo-search-lab ui --launch --reports reports \
   --host 10.0.0.10 --port 6001 --user BENCH_USER --password '你的密码'
 ```
@@ -47,6 +48,17 @@ cd mo-search-lab-v0.14.1-linux-amd64
 4. 完成后查看报告。`Esc` / `Ctrl-C` 取消时等待清理和报告保存。
 
 常规性能默认每轮预热 10 秒、目标测量 30 秒、1 轮。“更多设置”可以调整时长，正式性能记录可选 3 轮。导入、建索引只执行一次；多个场景、并发档位和独立稳定性检查会增加整体时间。
+
+### MO 3.0.4
+
+连接 3.0.4 时添加 `--compat-3-0-4`，或在交互表单打开“MO 3.0.4 兼容模式”：
+
+```bash
+./mo-search-lab ui --launch --compat-3-0-4 --reports reports \
+  --host MO_SQL_HOST --port 6001 --password '你的密码'
+```
+
+`run` 同样支持此开关。兼容模式为每个连接设置 IVF、全文会话开关，不修改服务器全局配置。向量过滤使用旧版默认执行策略，同一查询集的 pre/post 检查合并为一次默认过滤检查；两路测试采用相同的旧版向量 SQL。报告标记兼容模式，记录实际 SQL 与转换前场景的身份。数据包文件和真值保持原样。
 
 ## 3. 查看报告
 
@@ -65,18 +77,36 @@ cd mo-search-lab-v0.14.1-linux-amd64
 在有网络的机器先运行安装脚本，将**整个安装目录**打包带到现场即可：
 
 ```bash
-tar -czf mo-search-lab-offline.tar.gz mo-search-lab-v0.14.1-linux-amd64
+tar -czf mo-search-lab-offline.tar.gz mo-search-lab
 ```
 
 现场解压后直接执行第 2 节，不需要互联网：
 
 ```bash
 tar -xzf mo-search-lab-offline.tar.gz
-cd mo-search-lab-v0.14.1-linux-amd64
+cd mo-search-lab
 ./mo-search-lab ui --launch --reports reports --host MO_SQL_HOST --password '你的密码'
 ```
 
-也可以把该 Release 的 `setup.sh`、`SHA256SUMS`、`archive.sha256` 和所有 `.partNN` 附件放在同一目录带到现场，执行 `bash setup.sh --offline`；脚本完成校验和解压，无需手动合并。
+## 升级已有安装
+
+在原安装目录中执行：
+
+```bash
+curl -fL https://github.com/matrixorigin/mo-search-lab/releases/latest/download/setup.sh -o setup.sh
+bash setup.sh
+./mo-search-lab version
+```
+
+只下载约 5 MB 的工具包，更新程序和文档；`packs/`、`reports/`、自定义数据和原始数据来源记录保留，不重新导入 MO。旧安装目录即使带有版本号，也可原地升级。升级中失败会恢复原程序和文档。
+
+离线升级：将新 Release 的工具归档、`setup.sh`、`SHA256SUMS` 放在同一目录，例如 U 盘中：
+
+```bash
+bash /mnt/upgrade/setup.sh /原安装目录 --offline
+```
+
+首次离线部署仍使用前面准备好的完整安装目录。
 
 ## 可选操作
 

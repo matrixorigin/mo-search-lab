@@ -92,9 +92,11 @@ my-case/
 
 ```bash
 make check
-make release-full PACKS_ROOT=/data/packs OUTPUT_DIR=/data/releases/new-release
+make release
 ```
 
-`scripts/release.sh` 构建工具，`tools/package_field_bundle.py` 校验并归档四个常用包，保留共享 CSV 硬链接、来源与许可，生成分卷和 SHA-256 清单；`scripts/setup.sh` 完成现场安装。发布机使用 Go、Python 3.12+、GNU tar 和 gzip。
+`scripts/release.sh` 构建版本化工具归档，并生成 `setup.sh` 和 `SHA256SUMS`。工具归档中的 `TOOL.json` 记录版本与来源提交。发布这三个附件即可；安装脚本首次安装时复用 v0.14.1 的固定资源，后续只升级工具与文档。原始 `BUNDLE.json` 继续记录数据来源，安装目录的 `SHA256SUMS` 同时校验新工具和保留的数据元信息。
+
+需要发布新的数据资源时，用 `make release-full PACKS_ROOT=/data/packs OUTPUT_DIR=/data/releases/new-data`；`tools/package_field_bundle.py` 校验并归档四个常用包，保留共享 CSV 硬链接、来源与许可，生成分卷和校验清单。`scripts/setup-data.sh` 负责完整资源的校验与解压。发布机使用 Go、Python 3.12+、GNU tar 和 gzip。
 
 运行环境的输入格式与采集规则见 [环境配置](environment.md)，现场操作见 [部署手册](handbook.md)。
